@@ -4,12 +4,21 @@
 # # Continuous Control Project
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import progressbar as pb
 import numpy as np
 from parallelEnv import parallelEnv
 from unityagents import UnityEnvironment
+
+policy_name = 'PPO.policy'
+
+
+# check device
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("using device: ", device)
 
 env = UnityEnvironment(file_name='/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64')
 
@@ -52,10 +61,84 @@ while True:
         break
 print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
 
+# based on udacity pong exercise structure
+class Policy(nn.Module):
+
+    def __init__(self):
+        super(Policy, self).__init__()
+
+        # # Calculation of outputsize
+        # 80x80x2 to outputsize x outputsize
+        # outputsize = (inputsize - kernel_size + stride)/stride
+        # (round up if not an integer)
+
+        # 80x80x2 to 38x38x4
+        # 2 channel from the stacked frame
+        self.conv1 = nn.Conv2d(2, 4, kernel_size=6, stride=2, bias=False)
+        # 38x38x4 to 9x9x32
+        self.conv2 = nn.Conv2d(4, 16, kernel_size=6, stride=4)
+        self.size = 9 * 9 * 16
+
+        # two fully connected layer
+        self.fc1 = nn.Linear(self.size, 256)
+        self.fc2 = nn.Linear(256, 1)
+
+        # Sigmoid to
+        self.sig = nn.Sigmoid()
+
+        # # output = 20x20 here
+        # self.conv = nn.Conv2d(2, 1, kernel_size=4, stride=4)
+        # self.size=1*20*20
+        #
+        # # 1 fully connected layer
+        # self.fc = nn.Linear(self.size, 1)
+        # self.sig = nn.Sigmoid()
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        # flatten the tensor
+        x = x.view(-1, self.size)
+        x = F.relu(self.fc1(x))
+        return self.sig(self.fc2(x))
+
+        # x = F.relu(self.conv(x))
+        # # flatten the tensor
+        # x = x.view(-1,self.size)
+        # return self.sig(self.fc(x))
+
+class PolicyFullyConnected(nn.Module):
+    """Actor (Policy) Model."""
+    ''' 
+    this class was provided by Udacity Inc.
+    '''
+    def __init__(self, state_size, action_size, seed, fc1_units=64, fc2_units=64):
+        """Initialize parameters and build model.
+        Params
+        ======
+            state_size (int): Dimension of each state
+            action_size (int): Dimension of each action
+            seed (int): Random seed
+            fc1_units (int): Number of nodes in first hidden layer
+            fc2_units (int): Number of nodes in second hidden layer
+        """
+        super(PolicyFullyConnected, self).__init__()
+        self.seed = torch.manual_seed(seed)
+        self.fc1 = nn.Linear(state_size, fc1_units)
+        self.fc2 = nn.Linear(fc1_units, fc2_units)
+        self.fc3 = nn.Linear(fc2_units, action_size)
+
+    def forward(self, state):
+        """Build a network that maps state -> action values."""
+        x = F.relu(self.fc1(state))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
+
 class train:
     # from Udacity pong example pong-PPO.py:
     def train(policy_name='PPO.policy'):
 
+        policy = PolicyFullyConnected().to(device)
         optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
         # training loop max iterations
