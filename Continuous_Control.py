@@ -7,11 +7,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.distributions import Categorical
 import matplotlib.pyplot as plt
 import progressbar as pb
 import numpy as np
 from parallelEnv import parallelEnv
 from unityagents import UnityEnvironment
+from collections import deque
 
 policy_name = 'PPO.policy'
 
@@ -48,9 +50,12 @@ print('The state for the first agent looks like:', states[0])
 env_info = env.reset(train_mode=True)[brain_name]      # reset the environment
 states = env_info.vector_observations                  # get the current state (for each agent)
 scores = np.zeros(num_agents)                          # initialize the score (for each agent)
+count = 0
 while True:
+
     actions = np.random.randn(num_agents, action_size) # select an action (for each agent)
     actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
+    # print(f"actions: {actions}") if count == 0 else None
     env_info = env.step(actions)[brain_name]           # send all actions to tne environment
     next_states = env_info.vector_observations         # get next state (for each agent)
     rewards = env_info.rewards                         # get reward (for each agent)
@@ -112,7 +117,7 @@ class PolicyFullyConnected(nn.Module):
     ''' 
     this class was provided by Udacity Inc.
     '''
-    def __init__(self, state_size, action_size, seed, fc1_units=64, fc2_units=64):
+    def __init__(self, state_size, action_size, seed, fc1_units=21, fc2_units=10):
         """Initialize parameters and build model.
         Params
         ======
@@ -132,13 +137,64 @@ class PolicyFullyConnected(nn.Module):
         """Build a network that maps state -> action values."""
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        return self.fc3(x)      # softmax ?
+
+    # from Udacity REINFORCE in Policy Gradient Methods
+    def act(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        probs = self.forward(state).cpu()
+        m = Categorical(probs)
+        action = m.sample()
+        return action.item(), m.log_prob(action)
 
 class train:
-    # from Udacity pong example pong-PPO.py:
-    def train(policy_name='PPO.policy'):
 
+    # from Udacity REINFORCE in Policy Gradient Methods
+    def reinforce(n_episodes=1000, max_t=1000, gamma=1.0, print_every=100):
         policy = PolicyFullyConnected().to(device)
+        optimizer = optim.Adam(policy.parameters(), lr=1e-2)
+
+        scores_deque = deque(maxlen=100)
+        scores = []
+        for i_episode in range(1, n_episodes + 1):
+            saved_log_probs = []
+            rewards = []
+            state = env.reset()
+            for t in range(max_t):
+                action, log_prob = policy.act(state)
+                saved_log_probs.append(log_prob)
+                state, reward, done, _ = env.step(action)
+                rewards.append(reward)
+                if done:
+                    break
+            scores_deque.append(sum(rewards))
+            scores.append(sum(rewards))
+
+            discounts = [gamma ** i for i in range(len(rewards) + 1)]
+            R = sum([a * b for a, b in zip(discounts, rewards)])
+
+            policy_loss = []
+            for log_prob in saved_log_probs:
+                policy_loss.append(-log_prob * R)
+            policy_loss = torch.cat(policy_loss).sum()
+
+            optimizer.zero_grad()
+            policy_loss.backward()
+            optimizer.step()
+
+            if i_episode % print_every == 0:
+                print('Episode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
+            if np.mean(scores_deque) >= 195.0:
+                print('Environment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode - 100,
+                                                                                           np.mean(scores_deque)))
+                break
+
+        return scores
+
+    # from Udacity pong example pong-PPO.py:
+    def train(self, policy_name='PPO.policy'):
+
+        policy = PolicyFullyConnected(state_size=state_size, action_size=action_size).to(device)
         optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
         # training loop max iterations
@@ -151,7 +207,8 @@ class train:
                   pb.Bar(), ' ', pb.ETA()]
         timer = pb.ProgressBar(widgets=widget, maxval=episode).start()
 
-        envs = parallelEnv('PongDeterministic-v4', n=n_agents, seed=1234)
+        # envs = parallelEnv('PongDeterministic-v4', n=n_agents, seed=1234)
+        envs = parallelEnv(env, n=n_agents, seed=1234)
 
         discount_rate = .99
         epsilon = 0.1
@@ -165,17 +222,13 @@ class train:
         for e in range(episode):
 
             # collect trajectories
-            old_probs, states, actions, rewards = train.collect_trajectories(envs, policy, tmax=tmax)
+            states_, actions_, rewards_ = train.collect_trajectories(envs, policy, tmax=tmax)
 
-            total_rewards = np.sum(rewards, axis=0)
+            total_rewards = np.sum(rewards_, axis=0)
 
             # gradient ascent step
             for _ in range(SGD_epoch):
-                # uncomment to utilize your own clipped function!
-                # L = -clipped_surrogate(policy, old_probs, states, actions, rewards, epsilon=epsilon, beta=beta)
-
-                L = -train.clipped_surrogate(policy, old_probs, states, actions, rewards,
-                                                  epsilon=epsilon, beta=beta)
+                L = -train.clipped_surrogate(policy, states_, actions_, rewards_, epsilon=epsilon, beta=beta)
                 optimizer.zero_grad()
                 L.backward()
                 optimizer.step()
@@ -219,16 +272,16 @@ class train:
 
     # from udacity pong exercise pong_utils.py
     # collect trajectories for a parallelized parallelEnv object
-    def collect_trajectories(envs, policy, tmax=200, nrand=5):
+    def collect_trajectories(self, envs, policy, tmax=200, nrand=5):
 
         # number of parallel instances
         n = len(envs.ps)
 
         # initialize returning lists and start the game!
-        state_list = []
-        reward_list = []
-        prob_list = []
-        action_list = []
+        states_list = []
+        rewards_list = []
+        probs_list = []
+        actions_list = []
 
         envs.reset()
 
@@ -237,8 +290,10 @@ class train:
 
         # perform nrand random steps
         for _ in range(nrand):
-            fr1, re1, _, _ = envs.step(np.random.choice([RIGHT, LEFT], n))
-            fr2, re2, _, _ = envs.step([0] * n)
+            actions_1 = np.clip(np.random.randn(n, 4)/4, a_min=-1, a_max=1)
+            states_1, rewards_1, _, _ = envs.step(actions_1)
+            states_2, rewards_2, _, _ = envs.step(actions_1)
+            # fr2, re2, _, _ = envs.step([0] * n)
 
         for t in range(tmax):
 
@@ -246,28 +301,32 @@ class train:
             # preprocess_batch properly converts two frames into
             # shape (n, 2, 80, 80), the proper input for the policy
             # this is required when building CNN with pytorch
-            batch_input = preprocess_batch([fr1, fr2])
+            # batch_input = preprocess_batch([fr1, fr2])
 
             # probs will only be used as the pi_old
             # no gradient propagation is needed
             # so we move it to the cpu
-            probs = policy(batch_input).squeeze().cpu().detach().numpy()
+            # probs = policy(state).squeeze().cpu().detach().numpy()
+            actions_1 = policy(states_1).squeeze().cpu().detach().numpy()
 
-            action = np.where(np.random.rand(n) < probs, RIGHT, LEFT)
-            probs = np.where(action == RIGHT, probs, 1.0 - probs)
+            '''here we do actions = probs --> use actions later on'''
+            # actions = probs
+            # action_1 = np.where(np.random.rand(n) < probs, RIGHT, LEFT)
+            # probs = np.where(action == RIGHT, probs, 1.0 - probs)'
 
+            '''use same action multiple times'''
             # advance the game (0=no action)
             # we take one action and skip game forward
-            fr1, re1, is_done, _ = envs.step(action)
-            fr2, re2, is_done, _ = envs.step([0] * n)
+            states_1, rewards_1, is_done, _ = envs.step(actions_1)
+            states_2, rewards_2, is_done, _ = envs.step(actions_1)
 
-            reward = re1 + re2
+            rewards = rewards_1 + rewards_2
 
             # store the result
-            state_list.append(batch_input)
-            reward_list.append(reward)
-            prob_list.append(probs)
-            action_list.append(action)
+            states_list.append(states_tr)
+            rewards_list.append(rewards)
+            # probs_list.append(probs_tr)
+            actions_list.append(actions_1)
 
             # stop if any of the trajectories is done
             # we want all the lists to be retangular
@@ -275,10 +334,10 @@ class train:
                 break
 
         # return pi_theta, states, actions, rewards, probability
-        return prob_list, state_list, \
-               action_list, reward_list
+        # return prob_list, state_list, action_list, reward_list
+        return states_list, actions_list, rewards_list
 
-    def clipped_surrogate(policy, old_probs, states, actions, rewards,
+    def clipped_surrogate(self, policy, states, actions, rewards,
                           discount=0.995,
                           epsilon=0.1, beta=0.01):
 
@@ -295,7 +354,7 @@ class train:
 
         # convert everything into pytorch tensors and move to gpu if available
         actions = torch.tensor(actions, dtype=torch.int8, device=device)
-        old_probs = torch.tensor(old_probs, dtype=torch.float, device=device)
+        # old_probs = torch.tensor(old_probs, dtype=torch.float, device=device)
         rewards = torch.tensor(rewards_normalized, dtype=torch.float, device=device)
 
         # convert states to policy (or probability)
@@ -323,7 +382,7 @@ class train:
 
     # from udacity pong exercise pong_utils.py
     # convert states to probability, passing through the policy
-    def states_to_prob(policy, states):
+    def states_to_prob(self, policy, states):
         states = torch.stack(states)
         policy_input = states.view(-1, *states.shape[-3:])
         return policy(policy_input).view(states.shape[:-3])
