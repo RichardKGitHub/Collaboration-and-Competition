@@ -47,25 +47,24 @@ state_size = states.shape[1]
 print('There are {} agents. Each observes a state with length: {}'.format(states.shape[0], state_size))
 print('The state for the first agent looks like:', states[0])
 
-env_info = env.reset(train_mode=True)[brain_name]      # reset the environment
-states = env_info.vector_observations                  # get the current state (for each agent)
-scores = np.zeros(num_agents)                          # initialize the score (for each agent)
-count = 0
-while True:
-
-    actions = np.random.randn(num_agents, action_size) # select an action (for each agent)
-    actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
-    print(f"actions: {actions}\nbrain_name={brain_name}") if count == 0 else None
-    count += 1
-    env_info = env.step(actions)[brain_name]           # send all actions to tne environment
-    next_states = env_info.vector_observations         # get next state (for each agent)
-    rewards = env_info.rewards                         # get reward (for each agent)
-    dones = env_info.local_done                        # see if episode finished
-    scores += env_info.rewards                         # update the score (for each agent)
-    states = next_states                               # roll over states to next time step
-    if np.any(dones):                                  # exit loop if episode finished
-        break
-print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
+# env_info = env.reset(train_mode=True)[brain_name]      # reset the environment
+# states = env_info.vector_observations                  # get the current state (for each agent)
+# scores = np.zeros(num_agents)                          # initialize the score (for each agent)
+# count = 0
+# while True:
+#
+#     actions = np.random.randn(num_agents, action_size) # select an action (for each agent)
+#     actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
+#     # print(f"actions: {actions}") if count == 0 else None
+#     env_info = env.step(actions)[brain_name]           # send all actions to tne environment
+#     next_states = env_info.vector_observations         # get next state (for each agent)
+#     rewards = env_info.rewards                         # get reward (for each agent)
+#     dones = env_info.local_done                        # see if episode finished
+#     scores += env_info.rewards                         # update the score (for each agent)
+#     states = next_states                               # roll over states to next time step
+#     if np.any(dones):                                  # exit loop if episode finished
+#         break
+# print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
 
 # based on udacity pong exercise structure
 class Policy(nn.Module):
@@ -196,9 +195,8 @@ def reinforce(self, n_episodes=1000, max_t=1000, gamma=1.0, print_every=100):
     return scores
 
 # from Udacity pong example pong-PPO.py:
-def train(env=env, policy_name='PPO.policy'):
+def train(policy_name='PPO.policy'):
 
-    print(f" state_size={state_size}; action_size={action_size}")
     policy = PolicyFullyConnected(state_size=state_size, action_size=action_size).to(device)
     optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
@@ -212,8 +210,8 @@ def train(env=env, policy_name='PPO.policy'):
               pb.Bar(), ' ', pb.ETA()]
     timer = pb.ProgressBar(widgets=widget, maxval=episode).start()
 
-    # # envs = parallelEnv('PongDeterministic-v4', n=n_agents, seed=1234)
-    # envs = parallelEnv(env, n=n_agents, seed=1234)
+    # envs = parallelEnv('PongDeterministic-v4', n=n_agents, seed=1234)
+    envs = parallelEnv(env, n=n_agents, seed=1234)
 
     discount_rate = .99
     epsilon = 0.1
@@ -228,7 +226,7 @@ def train(env=env, policy_name='PPO.policy'):
 
         # collect trajectories
         # old_probs, states_, actions_, rewards_ = train.collect_trajectories(envs, policy, tmax=tmax)
-        old_probs, states_, actions_, rewards_ = collect_trajectories(env, policy, tmax=tmax)
+        old_probs, states_, actions_, rewards_ = collect_trajectories(envs, policy, tmax=tmax)
 
         total_rewards = np.sum(rewards_, axis=0)
 
@@ -279,12 +277,10 @@ def train(env=env, policy_name='PPO.policy'):
 
 # from udacity pong exercise pong_utils.py
 # collect trajectories for a parallelized parallelEnv object
-# def collect_trajectories(envs, policy, tmax=200, nrand=5):
-def collect_trajectories(env, policy, tmax=200, nrand=5):
+def collect_trajectories(envs, policy, tmax=200, nrand=5):
 
     # number of parallel instances
-    # n = len(envs.ps)
-    n = 20
+    n = len(envs.ps)
 
     # initialize returning lists and start the game!
     states_list = []
@@ -292,24 +288,17 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
     probs_list = []
     actions_list = []
 
-    # envs.reset()
-    #
-    # # start all parallel agents
-    # envs.step([1] * n)
+    envs.reset()
 
-    env_info = env.reset(train_mode=True)[brain_name]  # reset the environment
+    # start all parallel agents
+    envs.step([1] * n)
 
     # perform nrand random steps to get a random starting point
     for _ in range(nrand):
         actions_1 = np.clip(np.random.randn(n, 4)/4, a_min=-1, a_max=1)
         # states_1, rewards_1, _, _ = envs.step(actions_1)
-        print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
-        env_info_ = env.step(actions_1)[brain_name]
-        states_2 = env_info_.vector_observations  # get next state (for each agent)
-        rewards_2 = env_info_.rewards  # get reward (for each agent)
-        dones = env_info_.local_done  # see if episode finished
+        states_2, rewards_2, _, _ = envs.step(actions_1)
         # states_3, rewards_3, _, _ = envs.step(actions_1)
-        # print(f"states_2={states_2}")
 
     for t in range(tmax):
 
@@ -323,15 +312,7 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         # no gradient propagation is needed
         # so we move it to the cpu
         # probs = policy(state).squeeze().cpu().detach().numpy()
-
-        #  Expected object of type torch.cuda.FloatTensor but found type torch.DoubleTensor for argument #4 'mat1'
-        states_2 = torch.tensor(states_2)
-        states_2 = states_2.float().to(device)
-        print(f"states_2={states_2}")
         actions_1 = policy(states_2).squeeze().cpu().detach().numpy()
-        # actions_1 = policy(states_2).squeeze().detach().cpu().numpy()
-
-        print(f"actions_1 with states_2 input={actions_1}")
 
         '''here we do actions = probs --> use actions later on'''
         probs_1 = actions_1
@@ -341,14 +322,9 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         '''use same action multiple times'''
         # advance the game (0=no action)
         # we take one action and skip game forward
-        env_info_1 = env.step(actions_1)[brain_name]
-        env_info_2 = env.step(actions_1)[brain_name]
+        states_1, rewards_1, _, _       = envs.step(actions_1)
+        states_2, rewards_2, is_done, _ = envs.step(actions_1)
         # states_3, rewards_3, is_done, _ = envs.step(actions_1)
-        states_1 = env_info_1.vector_observations  # get next state (for each agent)
-        rewards_1 = env_info_1.rewards  # get reward (for each agent)
-        states_2 = env_info_2.vector_observations  # get next state (for each agent)
-        rewards_2 = env_info_2.rewards  # get reward (for each agent)
-        is_done = env_info_2.local_done  # see if episode finished
 
         rewards = rewards_1 + rewards_2 # + rewards_3
 
@@ -360,8 +336,7 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
 
         # stop if any of the trajectories is done
         # we want all the lists to be rectangular
-        if is_done:
-            print("break with is_done")
+        if is_done.any():
             break
 
     # return pi_theta, states, actions, rewards, probability
