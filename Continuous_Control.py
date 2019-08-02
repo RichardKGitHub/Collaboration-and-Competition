@@ -48,24 +48,24 @@ print('There are {} agents. Each observes a state with length: {}'.format(states
 print('The state for the first agent looks like:', states[0])
 
 env_info = env.reset(train_mode=True)[brain_name]      # reset the environment
-states = env_info.vector_observations                  # get the current state (for each agent)
-scores = np.zeros(num_agents)                          # initialize the score (for each agent)
-count = 0
-while True:
-
-    actions = np.random.randn(num_agents, action_size) # select an action (for each agent)
-    actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
-    print(f"actions: {actions}\nbrain_name={brain_name}") if count == 0 else None
-    count += 1
-    env_info = env.step(actions)[brain_name]           # send all actions to tne environment
-    next_states = env_info.vector_observations         # get next state (for each agent)
-    rewards = env_info.rewards                         # get reward (for each agent)
-    dones = env_info.local_done                        # see if episode finished
-    scores += env_info.rewards                         # update the score (for each agent)
-    states = next_states                               # roll over states to next time step
-    if np.any(dones):                                  # exit loop if episode finished
-        break
-print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
+# states = env_info.vector_observations                  # get the current state (for each agent)
+# scores = np.zeros(num_agents)                          # initialize the score (for each agent)
+# count = 0
+# while True:
+#
+#     actions = np.random.randn(num_agents, action_size) # select an action (for each agent)
+#     actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
+#     print(f"actions: {actions}\nbrain_name={brain_name}") if count == 0 else None
+#     count += 1
+#     env_info = env.step(actions)[brain_name]           # send all actions to tne environment
+#     next_states = env_info.vector_observations         # get next state (for each agent)
+#     rewards = env_info.rewards                         # get reward (for each agent)
+#     dones = env_info.local_done                        # see if episode finished
+#     scores += env_info.rewards                         # update the score (for each agent)
+#     states = next_states                               # roll over states to next time step
+#     if np.any(dones):                                  # exit loop if episode finished
+#         break
+# print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
 
 # based on udacity pong exercise structure
 class Policy(nn.Module):
@@ -229,7 +229,7 @@ def train(env=env, policy_name='PPO.policy'):
         # collect trajectories
         # old_probs, states_, actions_, rewards_ = train.collect_trajectories(envs, policy, tmax=tmax)
         old_probs, states_, actions_, rewards_ = collect_trajectories(env, policy, tmax=tmax)
-
+        print('old_probs={}\nstates_={}\nactions_={}\nrewards_={}'.format(old_probs, states_, actions_, rewards_))
         total_rewards = np.sum(rewards_, axis=0)
 
         # gradient ascent step
@@ -303,7 +303,7 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
     for _ in range(nrand):
         actions_1 = np.clip(np.random.randn(n, 4)/4, a_min=-1, a_max=1)
         # states_1, rewards_1, _, _ = envs.step(actions_1)
-        print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
+        # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
         env_info_ = env.step(actions_1)[brain_name]
         states_2 = env_info_.vector_observations  # get next state (for each agent)
         rewards_2 = env_info_.rewards  # get reward (for each agent)
@@ -327,11 +327,11 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         #  Expected object of type torch.cuda.FloatTensor but found type torch.DoubleTensor for argument #4 'mat1'
         states_2 = torch.tensor(states_2)
         states_2 = states_2.float().to(device)
-        print(f"states_2={states_2}")
+        # print(f"states_2={states_2}")
         actions_1 = policy(states_2).squeeze().cpu().detach().numpy()
         # actions_1 = policy(states_2).squeeze().detach().cpu().numpy()
 
-        print(f"actions_1 with states_2 input={actions_1}")
+        # print(f"actions_1 with states_2 input={actions_1}")
 
         '''here we do actions = probs --> use actions later on'''
         probs_1 = actions_1
@@ -413,8 +413,19 @@ def clipped_surrogate(policy, old_probs, states, actions, rewards, discount=0.99
 # from udacity pong exercise pong_utils.py
 # convert states to probability, passing through the policy
 def states_to_prob(policy, states):
-    states = torch.stack(states)
+    # states = torch.stack(torch.tensor(states))
+    states=torch.tensor(states)
+    # states = torch.stack(list(states))
     policy_input = states.view(-1, *states.shape[-3:])
+    # policy_input= policy_input.
+    print(f"policy_input: {policy_input}")
+    policy_input = torch.tensor(policy_input)
+    policy_input = policy_input.float().to(device)
+    policy_ = policy(policy_input)
+    print(f"policy_={policy_}")
+    print(f"states.shape={states.shape}\npolicy_.shape={policy_.shape}")
+    policy_ = policy_.view(states.shape[:-3])
+    print(f"policy_view={policy_}")
     return policy(policy_input).view(states.shape[:-3])
 
 # # from ShangtongZhang Examples:
