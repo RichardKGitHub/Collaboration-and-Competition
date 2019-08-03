@@ -119,7 +119,7 @@ class PolicyFullyConnected(nn.Module):
     ''' 
     this class was provided by Udacity Inc.
     '''
-    def __init__(self, state_size, action_size, seed=0, fc1_units=21, fc2_units=10):
+    def __init__(self, state_size, action_size, seed=1234, fc1_units=21, fc2_units=10):
         """Initialize parameters and build model.
         Params
         ======
@@ -206,8 +206,8 @@ def train(env=env, policy_name='PPO.policy', device=device):
     optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
     # training loop max iterations
-    episode = 100
-    n_agents = 8
+    episode = 10
+    n_agents = 32
 
     # widget bar to display progress
     # get_ipython().system('pip install progressbar')
@@ -227,6 +227,7 @@ def train(env=env, policy_name='PPO.policy', device=device):
     # keep track of progress
     mean_rewards = []
     all_total_rewards = []
+    all_acrions = []
     for e in range(episode):
 
         # collect trajectories
@@ -257,7 +258,7 @@ def train(env=env, policy_name='PPO.policy', device=device):
         for _ in range(SGD_epoch):
             # L = -train.clipped_surrogate(policy, old_probs, states_, actions_, rewards_, epsilon=epsilon, beta=beta)
             L = -clipped_surrogate(policy, old_probs_cs, states_, actions_cs, rewards_cs, epsilon=epsilon, beta=beta)
-            print(f"L: {L}")
+            # print(f"L: {L}")
             optimizer.zero_grad()
             L.backward()
             optimizer.step()
@@ -273,6 +274,7 @@ def train(env=env, policy_name='PPO.policy', device=device):
         # get the average reward of the parallel environments
         mean_rewards.append(np.mean(total_rewards))
         all_total_rewards.append(total_rewards)
+        all_acrions.append(actions_)
 
         # display some progress every 20 iterations
         if (e + 1) % 20 == 0:
@@ -288,7 +290,8 @@ def train(env=env, policy_name='PPO.policy', device=device):
     # torch.save(policy, policy_name)
 
     rewards = np.array(all_total_rewards)
-    print(f"rewards: {rewards}")
+    # print(f"rewards: {rewards}")
+    # print(f"actions= {all_acrions}")
     x_plot = np.arange(len(rewards))
     colums = 4
     numOfPlots = n_agents
@@ -357,7 +360,7 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
 
         '''here we do actions = probs --> use actions later on'''
         probs_1 = (actions_1 + 1) / 2
-        print(f"probs_1 in traject = {probs_1}") if t == 0 else None
+        # print(f"probs_1 in traject = {probs_1}") if t == 0 else None
         # action_1 = np.where(np.random.rand(n) < probs, RIGHT, LEFT)
         # probs = np.where(action == RIGHT, probs, 1.0 - probs)'
 
@@ -373,9 +376,9 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         rewards_2 = env_info_2.rewards  # get reward (for each agent)
         is_done = env_info_2.local_done  # see if episode finished
 
-        print(f"rewards_1: {len(rewards_1)} rewards_2: {len(rewards_2)} ") if t == 0 else None
+        # print(f"rewards_1: {len(rewards_1)} rewards_2: {len(rewards_2)} ") if t == 0 else None
         rewards = np.array(rewards_1) + np.array(rewards_2) # + rewards_3
-        print(f"rewards: {rewards.shape}") if t == 0 else None
+        # print(f"rewards: {rewards.shape}") if t == 0 else None
 
         # store the result
         states_list.append(states_1)
@@ -386,7 +389,7 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         # stop if any of the trajectories is done
         # we want all the lists to be rectangular
         if is_done:
-            print("break with is_done")
+            print("break with is_done") if t <= 50 else None
             break
 
     # return pi_theta, states, actions, rewards, probability
