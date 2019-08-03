@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+# import torchvision.transforms.functional as TF    # used for Normalization
 from torch.distributions import Categorical
 import matplotlib.pyplot as plt
 import progressbar as pb
@@ -132,13 +133,13 @@ class PolicyFullyConnected(nn.Module):
         self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, action_size)
+        self.fc3 = nn.Linear(fc2_units, action_size)    # self.sig = nn.Sigmoid()
 
     def forward(self, state):
         """Build a network that maps state -> action values."""
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
-        return self.fc3(x)      # softmax ?
+        return self.fc3(x)      # return self.sig(self.fc2(x))
 
     # from Udacity REINFORCE in Policy Gradient Methods
     def act(self, state):
@@ -147,6 +148,7 @@ class PolicyFullyConnected(nn.Module):
         m = Categorical(probs)
         action = m.sample()
         return action.item(), m.log_prob(action)
+
 
 # class train:
 #
@@ -195,16 +197,17 @@ def reinforce(self, n_episodes=1000, max_t=1000, gamma=1.0, print_every=100):
 
     return scores
 
+
 # from Udacity pong example pong-PPO.py:
-def train(env=env, policy_name='PPO.policy'):
+def train(env=env, policy_name='PPO.policy', device=device):
 
     print(f" state_size={state_size}; action_size={action_size}")
     policy = PolicyFullyConnected(state_size=state_size, action_size=action_size).to(device)
     optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
     # training loop max iterations
-    episode = 5
-    n_agents = 4
+    episode = 100
+    n_agents = 8
 
     # widget bar to display progress
     # get_ipython().system('pip install progressbar')
@@ -229,13 +232,32 @@ def train(env=env, policy_name='PPO.policy'):
         # collect trajectories
         # old_probs, states_, actions_, rewards_ = train.collect_trajectories(envs, policy, tmax=tmax)
         old_probs, states_, actions_, rewards_ = collect_trajectories(env, policy, tmax=tmax)
-        print('old_probs={}\nstates_={}\nactions_={}\nrewards_={}'.format(old_probs, states_, actions_, rewards_))
+        # print('old_probs={}\nstates_={}\nactions_={}\nrewards_={}'.format(old_probs, states_, actions_, rewards_))
         total_rewards = np.sum(rewards_, axis=0)
+
+        # from clipped_surrogate (till rewards....)
+        discount = 0.995
+        discount = discount ** np.arange(len(rewards_))
+        rewards = np.asarray(rewards_) * discount[:, np.newaxis]
+
+        # convert rewards to future rewards
+        rewards_future = rewards[::-1].cumsum(axis=0)[::-1]
+
+        mean = np.mean(rewards_future, axis=1)
+        std = np.std(rewards_future, axis=1) + 1.0e-10
+
+        rewards_normalized = (rewards_future - mean[:, np.newaxis]) / std[:, np.newaxis]
+
+        # convert everything into pytorch tensors and move to gpu if available
+        actions_cs = torch.tensor(actions_, dtype=torch.int8, device=device)
+        old_probs_cs = torch.tensor(old_probs, dtype=torch.float, device=device)
+        rewards_cs = torch.tensor(rewards_normalized, dtype=torch.float, device=device)
 
         # gradient ascent step
         for _ in range(SGD_epoch):
             # L = -train.clipped_surrogate(policy, old_probs, states_, actions_, rewards_, epsilon=epsilon, beta=beta)
-            L = -clipped_surrogate(policy, old_probs, states_, actions_, rewards_, epsilon=epsilon, beta=beta)
+            L = -clipped_surrogate(policy, old_probs_cs, states_, actions_cs, rewards_cs, epsilon=epsilon, beta=beta)
+            print(f"L: {L}")
             optimizer.zero_grad()
             L.backward()
             optimizer.step()
@@ -263,7 +285,7 @@ def train(env=env, policy_name='PPO.policy'):
     timer.finish()
 
     # save your policy!
-    torch.save(policy, policy_name)
+    # torch.save(policy, policy_name)
 
     rewards = np.array(all_total_rewards)
     print(f"rewards: {rewards}")
@@ -334,7 +356,8 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         # print(f"actions_1 with states_2 input={actions_1}")
 
         '''here we do actions = probs --> use actions later on'''
-        probs_1 = actions_1
+        probs_1 = (actions_1 + 1) / 2
+        print(f"probs_1 in traject = {probs_1}") if t == 0 else None
         # action_1 = np.where(np.random.rand(n) < probs, RIGHT, LEFT)
         # probs = np.where(action == RIGHT, probs, 1.0 - probs)'
 
@@ -346,11 +369,13 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         # states_3, rewards_3, is_done, _ = envs.step(actions_1)
         states_1 = env_info_1.vector_observations  # get next state (for each agent)
         rewards_1 = env_info_1.rewards  # get reward (for each agent)
-        states_2 = env_info_2.vector_observations  # get next state (for each agent)
+        # states_2 = env_info_2.vector_observations  # get next state (for each agent)
         rewards_2 = env_info_2.rewards  # get reward (for each agent)
         is_done = env_info_2.local_done  # see if episode finished
 
-        rewards = rewards_1 + rewards_2 # + rewards_3
+        print(f"rewards_1: {len(rewards_1)} rewards_2: {len(rewards_2)} ") if t == 0 else None
+        rewards = np.array(rewards_1) + np.array(rewards_2) # + rewards_3
+        print(f"rewards: {rewards.shape}") if t == 0 else None
 
         # store the result
         states_list.append(states_1)
@@ -370,44 +395,52 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
 
 def clipped_surrogate(policy, old_probs, states, actions, rewards, discount=0.995, epsilon=0.1, beta=0.01):
 
-    discount = discount ** np.arange(len(rewards))
-    rewards = np.asarray(rewards) * discount[:, np.newaxis]
+    # # convert states to policy (or probability)
+    # # new_probs = train.states_to_prob(policy, states)
+    # new_probs = states_to_prob(policy, states)
+    # # new_probs = torch.where(actions == RIGHT, new_probs, 1.0 - new_probs)
+    # # new_probs = actions
+    # # ratio for clipping
 
-    # convert rewards to future rewards
-    rewards_future = rewards[::-1].cumsum(axis=0)[::-1]
+    states = torch.tensor(states)
+    states = states.float().to(device)
+    # print(f"states_2={states_2}")
+    # actions_cs_ = policy(states).squeeze().cpu().detach().numpy()
+    # actions_cs_ = policy(states)
+    # print(f"actions_CS={actions_cs_}")
+    # new_probs_cs = (torch.tensor(actions_cs_, dtype=torch.float, device=device) + 1) / 2
+    # print(f"new_probs_cs={new_probs_cs}")
+    # ratio = new_probs_cs / old_probs
 
-    mean = np.mean(rewards_future, axis=1)
-    std = np.std(rewards_future, axis=1) + 1.0e-10
-
-    rewards_normalized = (rewards_future - mean[:, np.newaxis]) / std[:, np.newaxis]
-
-    # convert everything into pytorch tensors and move to gpu if available
-    actions = torch.tensor(actions, dtype=torch.int8, device=device)
-    old_probs = torch.tensor(old_probs, dtype=torch.float, device=device)
-    rewards = torch.tensor(rewards_normalized, dtype=torch.float, device=device)
-
-    # convert states to policy (or probability)
-    # new_probs = train.states_to_prob(policy, states)
-    new_probs = states_to_prob(policy, states)
-    # new_probs = torch.where(actions == RIGHT, new_probs, 1.0 - new_probs)
-    # new_probs = actions
-    # ratio for clipping
-    ratio = new_probs / old_probs
+    actions_cs_ = (policy(states) + 1) / 2
+    ratio = actions_cs_ / old_probs
 
     # clipped function
     clip = torch.clamp(ratio, 1 - epsilon, 1 + epsilon)
-    clipped_surrogate = torch.min(ratio * rewards, clip * rewards)
-
+    # print(f"ratio: {ratio}\nclip: {clip}\nrewards: {rewards}")
+    # print(f"dimratio: {ratio.size()}\ndimclip: {clip.size()}\ndimrewards: {rewards.size()}")
+    clipped_surrogate = torch.min(ratio * torch.tensor(rewards).view(1,20,1), clip * torch.tensor(rewards).view(1,20,1))
+    # print(f"clipped_surrogate = {clipped_surrogate}")
     # include a regularization term
     # this steers new_policy towards 0.5
     # add in 1.e-10 to avoid log(0) which gives nan
-    entropy = -(new_probs * torch.log(old_probs + 1.e-10) + \
-                (1.0 - new_probs) * torch.log(1.0 - old_probs + 1.e-10))
+    # print(f"new_probs={new_probs_cs}\nold_probs={old_probs}")
 
-    # this returns an average of all the entries of the tensor
-    # effective computing L_sur^clip / T
-    # averaged over time-step and number of trajectories
-    # this is desirable because we have normalized our rewards
+    # entropy = -(new_probs_cs * torch.log(old_probs + 1.e-10) + \
+    #             (1.0 - new_probs_cs) * torch.log(1.0 - old_probs + 1.e-10))
+    entropy = -(actions_cs_ * torch.log(old_probs + 1.e-10) + \
+                (1.0 - actions_cs_) * torch.log(1.0 - old_probs + 1.e-10))
+    # # print(f"entropy = {entropy}\nbeta = {beta}")
+    # # this returns an average of all the entries of the tensor
+    # # effective computing L_sur^clip / T
+    # # averaged over time-step and number of trajectories
+    # # this is desirable because we have normalized our rewards
+    # c_L = clipped_surrogate + beta * entropy
+    # # print(f"c_L={c_L}\nc_L.size()={c_L.size()}")
+    # L=c_L.mean([-2]).view(4)
+    # # L=c_L.mean()
+    # # print(f"L={L}\nL.size()={L.size()}")
+    # return L
     return torch.mean(clipped_surrogate + beta * entropy)
 
 # from udacity pong exercise pong_utils.py
