@@ -119,7 +119,7 @@ class PolicyFullyConnected(nn.Module):
     ''' 
     this class was provided by Udacity Inc.
     '''
-    def __init__(self, state_size, action_size, seed=1234, fc1_units=21, fc2_units=10):
+    def __init__(self, state_size, action_size, seed=1203, fc1_units=21, fc2_units=10):
         """Initialize parameters and build model.
         Params
         ======
@@ -206,8 +206,14 @@ def train(env=env, policy_name='PPO.policy', device=device):
     optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
     # training loop max iterations
-    episode = 10
-    n_agents = 32
+    episode = 2000
+    n_agents = 20
+    tmax = 150
+    SGD_epoch = 3
+    discount_rate = .99
+    epsilon = 0.1
+    epsilon_decay = 0.999
+    beta = .01
 
     # widget bar to display progress
     # get_ipython().system('pip install progressbar')
@@ -218,11 +224,8 @@ def train(env=env, policy_name='PPO.policy', device=device):
     # # envs = parallelEnv('PongDeterministic-v4', n=n_agents, seed=1234)
     # envs = parallelEnv(env, n=n_agents, seed=1234)
 
-    discount_rate = .99
-    epsilon = 0.1
-    beta = .01
-    tmax = 320
-    SGD_epoch = 4
+
+
 
     # keep track of progress
     mean_rewards = []
@@ -232,7 +235,7 @@ def train(env=env, policy_name='PPO.policy', device=device):
 
         # collect trajectories
         # old_probs, states_, actions_, rewards_ = train.collect_trajectories(envs, policy, tmax=tmax)
-        old_probs, states_, actions_, rewards_ = collect_trajectories(env, policy, tmax=tmax)
+        states_, actions_, rewards_ = collect_trajectories(env, policy, tmax=tmax)
         # print('old_probs={}\nstates_={}\nactions_={}\nrewards_={}'.format(old_probs, states_, actions_, rewards_))
         total_rewards = np.sum(rewards_, axis=0)
 
@@ -251,13 +254,13 @@ def train(env=env, policy_name='PPO.policy', device=device):
 
         # convert everything into pytorch tensors and move to gpu if available
         actions_cs = torch.tensor(actions_, dtype=torch.int8, device=device)
-        old_probs_cs = torch.tensor(old_probs, dtype=torch.float, device=device)
+        # old_probs_cs = torch.tensor(old_probs, dtype=torch.float, device=device)
         rewards_cs = torch.tensor(rewards_normalized, dtype=torch.float, device=device)
 
         # gradient ascent step
         for _ in range(SGD_epoch):
             # L = -train.clipped_surrogate(policy, old_probs, states_, actions_, rewards_, epsilon=epsilon, beta=beta)
-            L = -clipped_surrogate(policy, old_probs_cs, states_, actions_cs, rewards_cs, epsilon=epsilon, beta=beta)
+            L = -clipped_surrogate(policy, states_, actions_cs, rewards_cs, epsilon=epsilon, beta=beta)
             # print(f"L: {L}")
             optimizer.zero_grad()
             L.backward()
@@ -265,11 +268,22 @@ def train(env=env, policy_name='PPO.policy', device=device):
             del L
 
         # the clipping parameter reduces as time goes on
-        epsilon *= .999
+        epsilon *= epsilon_decay
 
         # the regulation term also reduces
         # this reduces exploration in later runs
         beta *= .995
+        # print(f"actions:{actions_}")
+        # print(f"states:{states_}")
+        # actions_min=min(actions_)
+        # actions_max=max(actions_)
+        # actions_mean=np.mean(actions_)
+        # actions_std=np.std(actions_)
+        #
+        # states_min=min(states_)
+        # states_max=max(states_)
+        # states_mean=np.mean(states_)
+        # states_std=np.std(states_)
 
         # get the average reward of the parallel environments
         mean_rewards.append(np.mean(total_rewards))
@@ -279,7 +293,7 @@ def train(env=env, policy_name='PPO.policy', device=device):
         # display some progress every 20 iterations
         if (e + 1) % 20 == 0:
             print("Episode: {0:d}, score: {1:f}".format(e + 1, np.mean(total_rewards)))
-            print(total_rewards)
+            # print(total_rewards)
 
         # update progress widget bar
         timer.update(e + 1)
@@ -288,6 +302,9 @@ def train(env=env, policy_name='PPO.policy', device=device):
 
     # save your policy!
     # torch.save(policy, policy_name)
+    # https://discuss.pytorch.org/t/picklingerror-when-using-torch-save/3362
+    torch.save(policy.state_dict(), policy_name)
+    # policy.state_dict()
 
     rewards = np.array(all_total_rewards)
     # print(f"rewards: {rewards}")
@@ -305,7 +322,7 @@ def train(env=env, policy_name='PPO.policy', device=device):
 # from udacity pong exercise pong_utils.py
 # collect trajectories for a parallelized parallelEnv object
 # def collect_trajectories(envs, policy, tmax=200, nrand=5):
-def collect_trajectories(env, policy, tmax=200, nrand=5):
+def collect_trajectories(env_tr, policy, tmax=200, nrand=5, nsameact=3):
 
     # number of parallel instances
     # n = len(envs.ps)
@@ -322,27 +339,16 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
     # # start all parallel agents
     # envs.step([1] * n)
 
-    env_info = env.reset(train_mode=True)[brain_name]  # reset the environment
+    env_info_tr = env_tr.reset(train_mode=True)[brain_name]  # reset the environment
 
     # perform nrand random steps to get a random starting point
     for _ in range(nrand):
-        actions_1 = np.clip(np.random.randn(n, 4)/4, a_min=-1, a_max=1)
-        # states_1, rewards_1, _, _ = envs.step(actions_1)
+        actions_tr = np.clip(np.random.randn(n, 4)/4, a_min=-1, a_max=1)
         # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
-        env_info_ = env.step(actions_1)[brain_name]
-        states_2 = env_info_.vector_observations  # get next state (for each agent)
-        rewards_2 = env_info_.rewards  # get reward (for each agent)
-        dones = env_info_.local_done  # see if episode finished
-        # states_3, rewards_3, _, _ = envs.step(actions_1)
-        # print(f"states_2={states_2}")
+        env_info_tr = env_tr.step(actions_tr)[brain_name]
+    states_tr = env_info_tr.vector_observations  # get next state (for each agent)
 
     for t in range(tmax):
-
-        # prepare the input
-        # preprocess_batch properly converts two frames into
-        # shape (n, 2, 80, 80), the proper input for the policy
-        # this is required when building CNN with pytorch
-        # batch_input = preprocess_batch([fr1, fr2])
 
         # probs will only be used as the pi_old
         # no gradient propagation is needed
@@ -350,53 +356,55 @@ def collect_trajectories(env, policy, tmax=200, nrand=5):
         # probs = policy(state).squeeze().cpu().detach().numpy()
 
         #  Expected object of type torch.cuda.FloatTensor but found type torch.DoubleTensor for argument #4 'mat1'
-        states_2 = torch.tensor(states_2)
-        states_2 = states_2.float().to(device)
+        # print(f"states:size1={states_2.size()}")
+        states_tr_1 = torch.tensor(states_tr)
+        # print(f"states:size2={states_2.size()}")    # --> states:size2=torch.Size([20, 33])
+        # states_2 = torch.from_numpy(states_2)
+        states_tr_1 = states_tr.float().to(device)
+
         # print(f"states_2={states_2}")
-        actions_1 = policy(states_2).squeeze().cpu().detach().numpy()
+        actions_tr = policy(states_tr).squeeze().cpu().detach().numpy()
         # actions_1 = policy(states_2).squeeze().detach().cpu().numpy()
 
         # print(f"actions_1 with states_2 input={actions_1}")
 
-        '''here we do actions = probs --> use actions later on'''
-        probs_1 = (actions_1 + 1) / 2
-        # print(f"probs_1 in traject = {probs_1}") if t == 0 else None
-        # action_1 = np.where(np.random.rand(n) < probs, RIGHT, LEFT)
-        # probs = np.where(action == RIGHT, probs, 1.0 - probs)'
-
         '''use same action multiple times'''
-        # advance the game (0=no action)
-        # we take one action and skip game forward
-        env_info_1 = env.step(actions_1)[brain_name]
-        env_info_2 = env.step(actions_1)[brain_name]
-        # states_3, rewards_3, is_done, _ = envs.step(actions_1)
-        states_1 = env_info_1.vector_observations  # get next state (for each agent)
-        rewards_1 = env_info_1.rewards  # get reward (for each agent)
-        # states_2 = env_info_2.vector_observations  # get next state (for each agent)
-        rewards_2 = env_info_2.rewards  # get reward (for each agent)
-        is_done = env_info_2.local_done  # see if episode finished
+        rewards_av_list = []
+        for i_same_act in range(nsameact):
+            env_info_tr = env_tr.step(actions_tr)[brain_name]
+            states_tr = env_info_tr.vector_observations  # get next state (for each agent)
+            rewards_tr = env_info_tr.rewards  # get reward (for each agent)
+            is_done = env_info_tr.local_done  # see if episode finished
+            rewards_av_list.append(rewards_tr)
+        rewards = np.mean(rewards_av_list)
+
+        # env_info_1 = env_tr.step(actions_tr)[brain_name]
+        # env_info_2 = env_tr.step(actions_tr)[brain_name]
+        # # states_3, rewards_3, is_done, _ = envs.step(actions_1)
+        # states_tr = env_info_1.vector_observations  # get next state (for each agent)
+        # rewards_1 = env_info_1.rewards  # get reward (for each agent)
+        # # states_2 = env_info_2.vector_observations  # get next state (for each agent)
+        # rewards_2 = env_info_2.rewards  # get reward (for each agent)
+        # is_done = env_info_2.local_done  # see if episode finished
 
         # print(f"rewards_1: {len(rewards_1)} rewards_2: {len(rewards_2)} ") if t == 0 else None
-        rewards = np.array(rewards_1) + np.array(rewards_2) # + rewards_3
+        # rewards = np.array(rewards_1) + np.array(rewards_2) # + rewards_3
         # print(f"rewards: {rewards.shape}") if t == 0 else None
 
         # store the result
-        states_list.append(states_1)
+        states_list.append(states_tr_1)
         rewards_list.append(rewards)
-        probs_list.append(probs_1)
-        actions_list.append(actions_1)
+        actions_list.append(actions_tr)
 
-        # stop if any of the trajectories is done
-        # we want all the lists to be rectangular
-        if is_done:
-            print("break with is_done") if t <= 50 else None
-            break
+        # # stop if any of the trajectories is done
+        # # we want all the lists to be rectangular
+        # if is_done:
+        #     print(f"is_done in t={t}") if t <= 50 else None
+        #     break
 
-    # return pi_theta, states, actions, rewards, probability
-    # return prob_list, state_list, action_list, reward_list
-    return probs_list, states_list, actions_list, rewards_list
+    return states_list, actions_list, rewards_list
 
-def clipped_surrogate(policy, old_probs, states, actions, rewards, discount=0.995, epsilon=0.1, beta=0.01):
+def clipped_surrogate(policy, states, actions, rewards, discount=0.995, epsilon=0.1, beta=0.01):
 
     # # convert states to policy (or probability)
     # # new_probs = train.states_to_prob(policy, states)
@@ -415,14 +423,19 @@ def clipped_surrogate(policy, old_probs, states, actions, rewards, discount=0.99
     # print(f"new_probs_cs={new_probs_cs}")
     # ratio = new_probs_cs / old_probs
 
-    actions_cs_ = (policy(states) + 1) / 2
-    ratio = actions_cs_ / old_probs
+    '''ratio'''
+    new_probs = (policy(states) + 1) / 2
+    # print(f"new_probs={new_probs}")
+    ratio = new_probs / old_probs
 
     # clipped function
     clip = torch.clamp(ratio, 1 - epsilon, 1 + epsilon)
     # print(f"ratio: {ratio}\nclip: {clip}\nrewards: {rewards}")
     # print(f"dimratio: {ratio.size()}\ndimclip: {clip.size()}\ndimrewards: {rewards.size()}")
-    clipped_surrogate = torch.min(ratio * torch.tensor(rewards).view(1,20,1), clip * torch.tensor(rewards).view(1,20,1))
+    # print(f"rewards__{rewards}")
+    # clipped_surrogate = torch.min(ratio * torch.tensor(rewards).view(1,20,1), clip * torch.tensor(rewards).view(1,20,1))
+    clipped_surrogate = torch.min(ratio * rewards.view(rewards.size()[-2], 20, 1),clip * rewards.view(rewards.size()[-2], 20, 1))
+
     # print(f"clipped_surrogate = {clipped_surrogate}")
     # include a regularization term
     # this steers new_policy towards 0.5
@@ -431,13 +444,14 @@ def clipped_surrogate(policy, old_probs, states, actions, rewards, discount=0.99
 
     # entropy = -(new_probs_cs * torch.log(old_probs + 1.e-10) + \
     #             (1.0 - new_probs_cs) * torch.log(1.0 - old_probs + 1.e-10))
-    entropy = -(actions_cs_ * torch.log(old_probs + 1.e-10) + \
-                (1.0 - actions_cs_) * torch.log(1.0 - old_probs + 1.e-10))
+    entropy = -(new_probs * torch.log(old_probs + 1.e-10) + \
+                (1.0 - new_probs) * torch.log(1.0 - old_probs + 1.e-10))
     # # print(f"entropy = {entropy}\nbeta = {beta}")
     # # this returns an average of all the entries of the tensor
     # # effective computing L_sur^clip / T
     # # averaged over time-step and number of trajectories
     # # this is desirable because we have normalized our rewards
+
     # c_L = clipped_surrogate + beta * entropy
     # # print(f"c_L={c_L}\nc_L.size()={c_L.size()}")
     # L=c_L.mean([-2]).view(4)
@@ -446,23 +460,23 @@ def clipped_surrogate(policy, old_probs, states, actions, rewards, discount=0.99
     # return L
     return torch.mean(clipped_surrogate + beta * entropy)
 
-# from udacity pong exercise pong_utils.py
-# convert states to probability, passing through the policy
-def states_to_prob(policy, states):
-    # states = torch.stack(torch.tensor(states))
-    states=torch.tensor(states)
-    # states = torch.stack(list(states))
-    policy_input = states.view(-1, *states.shape[-3:])
-    # policy_input= policy_input.
-    print(f"policy_input: {policy_input}")
-    policy_input = torch.tensor(policy_input)
-    policy_input = policy_input.float().to(device)
-    policy_ = policy(policy_input)
-    print(f"policy_={policy_}")
-    print(f"states.shape={states.shape}\npolicy_.shape={policy_.shape}")
-    policy_ = policy_.view(states.shape[:-3])
-    print(f"policy_view={policy_}")
-    return policy(policy_input).view(states.shape[:-3])
+# # from udacity pong exercise pong_utils.py
+# # convert states to probability, passing through the policy
+# def states_to_prob(policy, states):
+#     # states = torch.stack(torch.tensor(states))
+#     states=torch.tensor(states)
+#     # states = torch.stack(list(states))
+#     policy_input = states.view(-1, *states.shape[-3:])
+#     # policy_input= policy_input.
+#     print(f"policy_input: {policy_input}")
+#     policy_input = torch.tensor(policy_input)
+#     policy_input = policy_input.float().to(device)
+#     policy_ = policy(policy_input)
+#     print(f"policy_={policy_}")
+#     print(f"states.shape={states.shape}\npolicy_.shape={policy_.shape}")
+#     policy_ = policy_.view(states.shape[:-3])
+#     print(f"policy_view={policy_}")
+#     return policy(policy_input).view(states.shape[:-3])
 
 # # from ShangtongZhang Examples:
 # # A2C
