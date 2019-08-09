@@ -460,6 +460,34 @@ def clipped_surrogate(policy, states, actions, rewards, discount=0.995, epsilon=
     # return L
     return torch.mean(clipped_surrogate + beta * entropy)
 
+def get_min_max_state(env=env, episodes=1000):
+    env_info = env.reset(train_mode=True)[brain_name]  # reset the environment
+    # perform nrand random steps to get a random starting point
+    states=[]
+    actions_=[]
+    n=20
+    for _ in range(episodes):
+        for _ in range(400):
+            actions = np.clip(np.random.randn(n, 4) / 4, a_min=-1, a_max=1)
+            # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
+            env_info_tr = env.step(actions)[brain_name]
+            actions_.append(actions)
+            states.append(env_info_tr.vector_observations)  # get next state (for each agent)
+        env.reset(train_mode=True)[brain_name]
+    states = np.array(states)
+    #states = np.expand_dims(states, axis=0)
+    print(f"states: {states}")
+    min1=states.min(axis=1)
+    print(f"min1: {min1}")
+    min2=min1.min(axis=0)
+    print(f"min2: {min2}")
+    max2=states.max(axis=1).max(axis=0)
+    # med=states.mean(axis=1).mean(axis=0)
+
+
+    print(f"stateMin: {min2}\nstateMedian: \nstateMax: {max2}")
+    return None
+
 # # from udacity pong exercise pong_utils.py
 # # convert states to probability, passing through the policy
 # def states_to_prob(policy, states):
@@ -500,6 +528,6 @@ def clipped_surrogate(policy, states, actions, rewards, discount=0.995, epsilon=
 #     config.gradient_clip = 0.5
 #     run_steps(A2CAgent(config))
 
-train()
-
+# train()
+get_min_max_state(env)
 env.close()
