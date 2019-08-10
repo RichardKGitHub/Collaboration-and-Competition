@@ -347,10 +347,12 @@ def collect_trajectories(env_tr, policy, tmax=200, nrand=5, nsameact=3):
         # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
         env_info_tr = env_tr.step(actions_tr)[brain_name]
         rewards_tr = env_info_tr.rewards  # get reward (for each agent)
-        print(f"rewards in loop: {rewards_tr}")
-        print(F"rewards_size: {len(rewards_tr)}")
-    states_tr = env_info_tr.vector_observations  # get next state (for each agent)
-
+        # print(f"rewards in loop: {rewards_tr}")
+        # print(F"rewards_size: {len(rewards_tr)}")
+    states_tr = env_info_tr.vector_observations  # get next state (for each agent)     returns list of 20 lists
+    # print(f"states1234: {states_tr}")
+    # print(f"states_len: {len(states_tr)}")
+    # print(f"states_shape: {states_tr.shape()}")
     for t in range(tmax):
 
         # probs will only be used as the pi_old

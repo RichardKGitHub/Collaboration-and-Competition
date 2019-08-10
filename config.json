@@ -4,23 +4,35 @@
 #   config = commentjson.load(f)
 
 {
-
-
 "load_indices": "_00",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
 "save_indices": "_00",               # 11 during training or 11_test during test (for the plot)
 # "path_load": "archive/",
 # "path_save": "results/",
 
-# "save_weights": true,
+"save_weights": true,
 # "save_plot": true,
 # "show_plot": false,
 
-"network_type": "NetworkOneHiddenLayer",     # expected: NetworkFullyConnected, NetworkOneHiddenLayer
-"num_of_parallel_networks": 3,               # number of Networks with varying weights that get tested during training
-"episodes_train": 3,               # Number of episodes if --train==True
+"episodes_train": 3,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 100,                 # Number of episodes if --train==False
 "target_reward": 13,
 "consecutive_episodes_required": 100, # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
+
+
+"network_type": "NetworkOneHiddenLayer",     # expected: NetworkFullyConnected, NetworkOneHiddenLayer
+"num_of_parallel_networks": 50,               # number of Networks with varying weights that get tested during training
+"keep_weights_n_best_min": 1,               # 4 no change
+"keep_weights_n_best_mean": 2,
+"keep_weights_n_best_max": 1,
+"keep_weights_n_best_min_small_change": 5,  # 20 best small change
+"keep_weights_n_best_mean_small_change": 10,
+"keep_weights_n_best_max_small_change": 5,
+"keep_weights_n_best_min_big_change": 2,    # 12 best big change
+"keep_weights_n_best_mean_big_change": 4,
+"keep_weights_n_best_max_big_change": 2,
+"keep_weights_n_worst_min_big_change": 1,   # 4 worst
+"keep_weights_n_worst_mean_big_change": 2,
+"keep_weights_n_worst_max_big_change": 1,
 # "epsilon_start": 1.0,
 # "epsilon_end": 0.01,
 # "epsilon_decay": 0.995,
@@ -30,16 +42,18 @@
 # "batch_size": 64,         # minibatch size
 # "gamma": 0.995,           # discount factor
 # "tau": 1e-3,              # for soft update of target parameters
-"sigma": 0.5,                # factor for the scaling of the random weight initialisation
+"sigma": 0.5,             # factor for the scaling of the np.random.randn() weight initialisation
 # "learning_rate": 5e-4,    # learning rate
 # "update_target_every": 4, # how often to update the network
-
+"lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -14, -3, -4, -14, -11, -15, -11, -11, -10, -1, -1, -1, -1, -14,
+                   -14, -11, -20, -19, -19, -8, -1.1, -8, -0.1, 0.9, -0.1, -1],
+                   [4.1, 4.1, 4.1, 1, 1, 1, 1, 14, 3, 4, 14, 11, 15, 11, 11, 10, 1, 1, 1, 1, 14, 14, 11, 20, 19, 19,
+                   8, -0.9, 8, 0.1, 1.1, 0.1, 1], false],
 "number_of_agents": 20,
+"agents_duplication_factor": 1,
+"number_of_random_actions": 5,
 "env_train_mode": true,    # true during training | false for test
-# # "environment_path":"/data/Banana_Linux_NoVis/Banana.x86_64"
+# # "environment_path":"/data/......x86_64"
 "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64"
-
-
-
 
 }
