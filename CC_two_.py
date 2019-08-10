@@ -330,7 +330,7 @@ print('\nAverage Implementation Shortfall: ${:,.2f} \n'.format(np.mean(shortfall
 
 
 
-''' CEM.py?  Lesson2 Nr.- Workspace ###############################################################################'''
+''' CEM.py?  Lesson2 Nr.9 Workspace ###############################################################################'''
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

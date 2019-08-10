@@ -206,7 +206,7 @@ def train(env=env, policy_name='PPO.policy', device=device):
     optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
     # training loop max iterations
-    episode = 2000
+    episode = 2
     n_agents = 20
     tmax = 150
     SGD_epoch = 3
@@ -346,6 +346,9 @@ def collect_trajectories(env_tr, policy, tmax=200, nrand=5, nsameact=3):
         actions_tr = np.clip(np.random.randn(n, 4)/4, a_min=-1, a_max=1)
         # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
         env_info_tr = env_tr.step(actions_tr)[brain_name]
+        rewards_tr = env_info_tr.rewards  # get reward (for each agent)
+        print(f"rewards in loop: {rewards_tr}")
+        print(F"rewards_size: {len(rewards_tr)}")
     states_tr = env_info_tr.vector_observations  # get next state (for each agent)
 
     for t in range(tmax):
@@ -374,6 +377,7 @@ def collect_trajectories(env_tr, policy, tmax=200, nrand=5, nsameact=3):
             env_info_tr = env_tr.step(actions_tr)[brain_name]
             states_tr = env_info_tr.vector_observations  # get next state (for each agent)
             rewards_tr = env_info_tr.rewards  # get reward (for each agent)
+            # print(f"rewards in loop: {rewards_tr}")
             is_done = env_info_tr.local_done  # see if episode finished
             rewards_av_list.append(rewards_tr)
         rewards = np.mean(rewards_av_list)
@@ -528,6 +532,6 @@ def get_min_max_state(env=env, episodes=1000):
 #     config.gradient_clip = 0.5
 #     run_steps(A2CAgent(config))
 
-# train()
-get_min_max_state(env)
+train()
+# get_min_max_state(env)
 env.close()
