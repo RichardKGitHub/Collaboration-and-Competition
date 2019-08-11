@@ -4,49 +4,48 @@
 #   config = commentjson.load(f)
 
 {
-"load_indices": "g_00",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
+"load_indices": "_00",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
 "save_indices": "_00",               # 11 during training or 11_test during test (for the plot)
-"path_load": "archive/",
+# "path_load": "archive/",
 "path_save": "results/",
-"load_scores_version": 1,            # test the agent with the weights from: 0: min_reward; 1: mean_reward; 2: max_reward
 
 "save_weights": true,
 "save_plot": true,
 "show_plot": true,
 
-"episodes_train": 200,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
+"episodes_train": 10,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 100,                 # Number of episodes if --train==False
 "target_reward": 13,
 "consecutive_episodes_required": 100, # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
 
 "network_type": "NetworkOneHiddenLayer",     # expected: NetworkFullyConnected, NetworkOneHiddenLayer
-#"num_of_parallel_networks": 5,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
-#"keep_weights_n_best_min": 1,               # 4 no change
-#"keep_weights_n_best_mean": 2,
-#"keep_weights_n_best_max": 1,
-#"keep_weights_n_best_min_small_change": 0,  # 20 best small change
-#"keep_weights_n_best_mean_small_change": 0,
-#"keep_weights_n_best_max_small_change": 0,
-#"keep_weights_n_best_min_big_change": 0,    # 12 best big change
-#"keep_weights_n_best_mean_big_change": 0,
-#"keep_weights_n_best_max_big_change": 0,
-#"keep_weights_n_worst_min_big_change": 0,   # 4 worst big change
-#"keep_weights_n_worst_mean_big_change": 0,
-#"keep_weights_n_worst_max_big_change": 0,
-"num_of_parallel_networks": 50,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
+"num_of_parallel_networks": 5,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
 "keep_weights_n_best_min": 1,               # 4 no change
 "keep_weights_n_best_mean": 2,
 "keep_weights_n_best_max": 1,
-"keep_weights_n_best_min_small_change": 5,  # 20 best small change
-"keep_weights_n_best_mean_small_change": 10,
-"keep_weights_n_best_max_small_change": 5,
-"keep_weights_n_best_min_big_change": 2,    # 12 best big change
-"keep_weights_n_best_mean_big_change": 4,
-"keep_weights_n_best_max_big_change": 2,
-"keep_weights_n_worst_min_big_change": 1,   # 4 worst big change
-"keep_weights_n_worst_mean_big_change": 2,
-"keep_weights_n_worst_max_big_change": 1,
+"keep_weights_n_best_min_small_change": 0,  # 20 best small change
+"keep_weights_n_best_mean_small_change": 0,
+"keep_weights_n_best_max_small_change": 0,
+"keep_weights_n_best_min_big_change": 0,    # 12 best big change
+"keep_weights_n_best_mean_big_change": 0,
+"keep_weights_n_best_max_big_change": 0,
+"keep_weights_n_worst_min_big_change": 0,   # 4 worst big change
+"keep_weights_n_worst_mean_big_change": 0,
+"keep_weights_n_worst_max_big_change": 0,
+#"num_of_parallel_networks": 50,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
+#"keep_weights_n_best_min": 1,               # 4 no change
+#"keep_weights_n_best_mean": 2,
+#"keep_weights_n_best_max": 1,
+#"keep_weights_n_best_min_small_change": 5,  # 20 best small change
+#"keep_weights_n_best_mean_small_change": 10,
+#"keep_weights_n_best_max_small_change": 5,
+#"keep_weights_n_best_min_big_change": 2,    # 12 best big change
+#"keep_weights_n_best_mean_big_change": 4,
+#"keep_weights_n_best_max_big_change": 2,
+#"keep_weights_n_worst_min_big_change": 1,   # 4 worst big change
+#"keep_weights_n_worst_mean_big_change": 2,
+#"keep_weights_n_worst_max_big_change": 1,
 "noise_scale_best_small": 0.005,
 "noise_scale_best_big": 0.01,
 "noise_scale_worst": 0.05,
@@ -68,8 +67,8 @@
 "number_of_agents": 20,
 "agents_duplication_factor": 1,
 "number_of_random_actions": 5,
-"max_steps_per_training_episode": 200,  # 1000 for test()
-"num_of_same_act_repetition": 1,        # 1 for test()
+"max_steps_per_training_episode": 200,
+"num_of_same_act_repetition": 1,
 "env_train_mode": true,    # true during training | false for test
 # # "environment_path":"/data/......x86_64"
 "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64"

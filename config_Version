@@ -4,17 +4,16 @@
 #   config = commentjson.load(f)
 
 {
-"load_indices": "g_00",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
+"load_indices": "_00",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
 "save_indices": "_00",               # 11 during training or 11_test during test (for the plot)
-"path_load": "archive/",
+# "path_load": "archive/",
 "path_save": "results/",
-"load_scores_version": 1,            # test the agent with the weights from: 0: min_reward; 1: mean_reward; 2: max_reward
 
 "save_weights": true,
 "save_plot": true,
 "show_plot": true,
 
-"episodes_train": 200,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
+"episodes_train": 500,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 100,                 # Number of episodes if --train==False
 "target_reward": 13,
 "consecutive_episodes_required": 100, # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
@@ -68,8 +67,8 @@
 "number_of_agents": 20,
 "agents_duplication_factor": 1,
 "number_of_random_actions": 5,
-"max_steps_per_training_episode": 200,  # 1000 for test()
-"num_of_same_act_repetition": 1,        # 1 for test()
+"max_steps_per_training_episode": 200,
+"num_of_same_act_repetition": 1,
 "env_train_mode": true,    # true during training | false for test
 # # "environment_path":"/data/......x86_64"
 "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64"

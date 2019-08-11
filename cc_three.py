@@ -5,9 +5,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 import argparse
 import commentjson
+import matplotlib.pyplot as plt
 from torch.distributions import Categorical
 from unityagents import UnityEnvironment
 from collections import deque
+
 
 
 class NetworkFullyConnected(nn.Module):
@@ -171,11 +173,12 @@ class Administration:
     def __init__(self, config_data_interact):
         self.load_indices = config_data_interact['load_indices']
         self.save_indices = config_data_interact['save_indices']
-        # self.path_load = config_data_interact['path_load']
-        # self.path_save = config_data_interact['path_save']
+        self.path_load = config_data_interact['path_load']
+        self.path_save = config_data_interact['path_save']
+        self.load_scores_version = config_data_interact['load_scores_version']
         self.save_weights = config_data_interact['save_weights']
-        # self.save_plot = config_data_interact['save_plot']
-        # self.show_plot = config_data_interact['show_plot']
+        self.save_plot = config_data_interact['save_plot']
+        self.show_plot = config_data_interact['show_plot']
         self.episodes_train = config_data_interact['episodes_train']
         self.episodes_test = config_data_interact['episodes_test']
         self.target_reward = config_data_interact['target_reward']
@@ -212,6 +215,8 @@ class Administration:
         self.number_of_agents = config_data_interact['number_of_agents']  # 20
         self.agents_duplication_factor = config_data_interact['agents_duplication_factor']
         self.number_of_random_actions = config_data_interact['number_of_random_actions']
+        self.max_steps_per_training_episode = config_data_interact['max_steps_per_training_episode']
+        self.num_of_same_act_repetition = config_data_interact['num_of_same_act_repetition']
         self.env_train_mode = config_data_interact['env_train_mode']
         self.environment_path = config_data_interact['environment_path']
         if train is True:
@@ -377,112 +382,65 @@ class Administration:
                 self.rewards_all_episodes[k, i] = self.rewards_all_networks.max(axis=1)[k]
             if i >= self.consecutive_episodes_required:
                 '''next 3 only for testing'''
-                rewards_deque = self.rewards_all_episodes[:, i - 100:i + 1]
-                rewards_deque_mean = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)
-                rewards_deque_max = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1).max()
-                print(f"ci check_indexing in train(): rewards_deque_shape={rewards_deque.shape()} | should be (3,100)")
-                print(f"ci rewards_deque_mean={rewards_deque_mean} | should be of shape (3))")
-                print(f"ci rewards_deque_max={rewards_deque_max} | should be one value")
+                # rewards_deque = self.rewards_all_episodes[:, i - 100:i + 1]
+                # rewards_deque_mean = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)
+                # rewards_deque_max = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1).max()
+                # print(f"ci check_indexing in train(): rewards_deque_shape={rewards_deque.shape()} | should be (3,100)")
+                # print(f"ci rewards_deque_mean={rewards_deque_mean} | should be of shape (3))")
+                # print(f"ci rewards_deque_max={rewards_deque_max} | should be one value")
+
                 # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1).max() >= self.target_reward: # if either min or mean or max of Results reaches the goal value
                 # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1)[0] >= self.target_reward:    # if min of Results reaches the goal value
                 if self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[
                     1] >= self.target_reward:  # if mean of Results reaches the goal value
-                    print(
-                        f"target reward reached in episode: {i - self.consecutive_episodes_required}: mean_of_means_of_rewards={self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1]}")
-                    last_max_reward_positions = np.argmax(self.rewards_all_networks,
-                                                          axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
-                    print(f"ci last_max_reward_positions= {last_max_reward_positions}")
-                    print(
-                        f"ci corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
-                    max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
-                    max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
-                    max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
+                    print(f"target reward reached in episode: {i - self.consecutive_episodes_required}: "
+                          f"mean_of_means_of_rewards={self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1]}")
+                    # last_max_reward_positions = np.argmax(self.rewards_all_networks,
+                    #                                       axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
+                    # print(f"ci last_max_reward_positions= {last_max_reward_positions}")
+                    # print(
+                    #     f"ci corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
+                    # max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
+                    # max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
+                    # max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
                     if self.save_weights and not saved:
-                        save_weights(max_reward_weights_min, max_reward_weights_mean, max_reward_weights_max,
-                                     "weights_s_" + self.save_indices)
+                        np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
+                        np.save(self.path_save + 'scores_s' + self.save_indices, self.rewards_all_networks)
                         saved = True
                     break
             # print(f"rewards_all_nw: {self.rewards_all_networks}")
             # print(f"\n\nrewards_all_ep: {self.rewards_all_episodes}")
             self.update_weightslist()
+        admin.plot_results()
         if self.save_weights:
-            last_max_reward_positions = np.argmax(self.rewards_all_networks,
-                                                  axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
-            print(f"ci Ende: last_max_reward_positions= {last_max_reward_positions}")
-            print(f"ci Ende: corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
-            max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
-            max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
-            max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
-            save_weights(max_reward_weights_min, max_reward_weights_mean, max_reward_weights_max,
-                         "weights_g_" + self.save_indices)
-        agent.plot_results()
+            # last_max_reward_positions = np.argmax(self.rewards_all_networks,
+            #                                       axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
+            # print(f"ci Ende: last_max_reward_positions= {last_max_reward_positions}")
+            # # doesn't work yet: print(f"ci Ende: corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
+            # # max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
+            # # max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
+            # # max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
+            np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
+            np.save(self.path_save + 'scores_g' + self.save_indices, self.rewards_all_networks)
         return None
-
-    # def train(self):
-    #     """"""
-    #     '''
-    #     this Function may contain Code provided by Udacity Inc.
-    #     '''
-    #     time_new = time_start = datetime.datetime.now()
-    #     score = 0
-    #     scores = []
-    #     epsilones = []
-    #     solved = False
-    #     scores_window = deque(maxlen=100)   # last 100 scores
-    #     epsilon = self.epsilon_start
-    #     for i_episode in range(self.episodes_train):
-    #         env_info = env.reset(train_mode=True)[brain_name]
-    #         state, _, _ = get_infos(env_info)
-    #         while True:
-    #             action = agent.act(state, epsilon)
-    #             env_info = env.step(action)[brain_name]
-    #             next_state, reward, done = get_infos(env_info)
-    #             agent.step(state, action, reward, next_state, done)
-    #             score += reward
-    #             state = next_state
-    #             if done:                    # if done = True
-    #                 env.reset()
-    #                 break
-    #         scores_window.append(score)
-    #         scores.append(score)
-    #         epsilones.append(epsilon)
-    #         if (i_episode + 1) % 25 == 0:
-    #             time_old = time_new
-    #             time_new = datetime.datetime.now()
-    #             print('\rMin_Score {}\tAverage_Score: {:.2f}\tMax_Score {}\tEpisode {}/{}\tTime since start: {}'
-    #                   '\tdeltaTime: {}'.format(np.min(scores_window), np.mean(scores_window), np.max(scores_window),
-    #                                            i_episode, self.episodes_train-1, str(time_new-time_start).split('.')[0],
-    #                                            str(time_new-time_old).split('.')[0]), end="")
-    #         if np.mean(scores_window) >= self.end_training_score and solved is False:
-    #             print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(
-    #                                                                    i_episode - 100, np.mean(scores_window)),
-    #                                                                    end="\n\n")
-    #             if self.save_weights:
-    #                 torch.save(agent.qnetwork_local.state_dict(), self.path_save + "checkpoint_s_" +
-    #                            self.save_indices + ".pth")
-    #             solved = True
-    #             # break
-    #         epsilon = max(epsilon * self.epsilon_decay, self.epsilon_end)
-    #         score = 0
-    #     if self.save_weights:
-    #         torch.save(agent.qnetwork_local.state_dict(), self.path_save + "checkpoint_g_" + self.save_indices + ".pth")
-    #     env.close()
-    #     print(f'\n')
-    #     plot_scores(scores, epsilones)
-    #     return None
 
     def test(self, episodes=10, ):
         self.weights_dim = agent.get_weights_dim()
+        self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices)
+        # self.rewards_all_networks = np.load(self.path_load + 'scores_' + self.load_indices)
+        # self.update_weightslist()
+        agent.set_weights(self.weightslist[self.load_scores_version][0])
         # initialize
         # env = environment
         # agent = Agent()
-        weight = load()
         # choose mean_weights
         rewards_test = []
         rewards_deque = deque(maxlen=self.consecutive_episodes_required)
         means_of_means_of_sum_of_rewards = []
         for i in range(episodes):
-            reward_min, reward_mean, reward_max = agent.get_rewards(env, weight, trainmode=False)
+            env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
+            env_utils.normalize_states()
+            reward_min, reward_mean, reward_max = agent.get_rewards(env, trainmode=False)
             rewards_test.append(reward)
             if i >= self.consecutive_episodes_required:
                 means_of_means_of_sum_of_rewards.append(np.mean(rewards_deque))
@@ -527,24 +485,24 @@ class Administration:
     #     plot_scores(scores)
     #     return None
 
-    def get_rewards(self, max_steps=200, trainmode=True, n_same_act=1):
+    def get_rewards(self, trainmode=True):
         '''test_networks()'''
         # get trajectories and discount them --> new Rewards --> not necessary
         # --> 20 Robots per weight for n episodes --> get weights (raw)
         rewards_sum = np.zeros(self.number_of_agents)
-        if trainmode:
-            for _ in range(self.number_of_random_actions):
-                actions = np.clip(np.random.randn(self.number_of_agents, 4) / 4, a_min=-1, a_max=1)
-                env_info_tr = env.step(actions)[brain_name]
-            env_utils.states = env_info_tr.vector_observations  # get next state (for each agent)
-        else:
-            env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
-        env_utils.normalize_states()
-        for _ in range(max_steps):
+        # if trainmode:
+        #     for _ in range(self.number_of_random_actions):
+        #         actions = np.clip(np.random.randn(self.number_of_agents, 4) / 4, a_min=-1, a_max=1)
+        #         env_info_tr = env.step(actions)[brain_name]
+        #     env_utils.states = env_info_tr.vector_observations  # get next state (for each agent)
+        # else:
+        #     env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
+        # env_utils.normalize_states()
+        for _ in range(self.max_steps_per_training_episode):
             actions = agent(
                 torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
             '''use same action multiple times'''
-            for i_same_act in range(n_same_act):
+            for i_same_act in range(self.num_of_same_act_repetition):
                 env_info = env.step(actions)[brain_name]
                 rewards_sum += np.array(env_info.rewards)
                 # print(f"env_info.rewards: {env_info.rewards}")
@@ -554,19 +512,71 @@ class Administration:
             env_utils.normalize_states()
         return rewards_sum.min(), rewards_sum.mean(), rewards_sum.max()
 
-    def plot_results(self, rewards):
-        if rewards.size()[0] == 3:
-            ''' Training:
-            5 best Networks: reward: max of the 20 agents (of Sum in one Episode) over Episodes
-            5 best Networks: reward: mean of the 20 agents (of Sum in one Episode) over Episodes
-            5 best Networks: reward: min of the 20 agents (of Sum in one Episode) over Episodes '''
-        elif rewards.size()[0] == 1:
-            ''' Test:
-            tested Network: reward: max of the 20 agents (of Sum in one Episode) over Episodes
-            tested Network: reward: mean of the 20 agents (of Sum in one Episode) over Episodes
-            tested Network: reward: min of the 20 agents (of Sum in one Episode) over Episodes '''
+    def plot_results(self):
+        '''
+        this Function may contain Code provided by Udacity Inc.
+        '''
+        # create figure
+        # fig = plt.figure()
+        # if self.rewards_all_episodes.size()[0] == 3:
+
+        ''' Training:
+        max of min_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        max of mean_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        max of max_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode 
+            Testing:
+        same plots, but always from the same Network
+        '''
+        print(f"plot_results() rewards_all_episodes={self.rewards_all_episodes}")
+        print(f"plot_results() rewards_all_episodes[0]={self.rewards_all_episodes[0]}")
+
+        x_plot = np.arange(len(self.rewards_all_episodes[0]))
+        numOfPlots = 3
+
+        for plot_number in range(3):
+            plt.subplot(numOfPlots, 1, plot_number + 1)
+            plt.plot(x_plot, self.rewards_all_episodes[plot_number], '.-')
+            # plt.title('A tale of 2 subplots')
+            # plt.ylabel('Damped oscillation')
+
+
+        # elif self.rewards_all_episodes.size()[0] == 1:
+        #     ''' Test:
+        #     tested Network: score: max of the 20 agents (of score in one Episode) over Episodes
+        #     tested Network: score: mean of the 20 agents (of score in one Episode) over Episodes
+        #     tested Network: score: min of the 20 agents (of score in one Episode) over Episodes '''
+        #     x_plot = np.arange(len(self.rewards_all_episodes[0]))
+        #     plt.subplot(1, 1, 1)
+        #     plt.plot(x_plot, self.rewards_all_episodes[0], '.-')
+        #
+        #     # fig.add_subplot(212)
+        #     # plt.plot(np.arange(len(epsilones)), epsilones)
+        #     # plt.ylabel('epsilon')
+        #     # plt.xlabel('Episode #')
+        #     # fig.add_subplot(211)
         else:
             print("plot_results(): rewards of wrong Dimension")
+
+        # ''' Training:
+        # max of min_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        # max of mean_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        # max of max_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        #     Testing:
+        # same plots, but always from the same Network
+        # '''
+        # x_plot = np.arange(len(self.rewards_all_episodes[0]))
+        # print(f"doesent count up:  {self.rewards_all_episodes.size()[0]}")
+        # for plot_number in range(self.rewards_all_episodes.size()[0]):
+        #     plt.subplot(self.rewards_all_episodes.size()[0], 1, plot_number + 1)
+        #     plt.plot(x_plot, self.rewards_all_episodes[plot_number], '.-')
+        #     # plt.title('A tale of 2 subplots')
+        #     # plt.ylabel('Damped oscillation')
+        if self.save_plot:
+            # save the plot
+            plt.savefig(self.path_save + "graph_" + self.save_indices + ".png")
+        if self.show_plot:
+            # plot the scores
+            plt.show()
         return None
 
 
