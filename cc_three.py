@@ -9,11 +9,13 @@ from torch.distributions import Categorical
 from unityagents import UnityEnvironment
 from collections import deque
 
+
 class NetworkFullyConnected(nn.Module):
     """Actor (Policy) Model."""
     ''' 
     this class was provided by Udacity Inc.
     '''
+
     def __init__(self, state_size, action_size, seed=1203, fc1_units=21, fc2_units=10):
         """Initialize parameters and build model.
         Params
@@ -28,13 +30,13 @@ class NetworkFullyConnected(nn.Module):
         self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, action_size)    # self.sig = nn.Sigmoid()
+        self.fc3 = nn.Linear(fc2_units, action_size)  # self.sig = nn.Sigmoid()
 
     def forward(self, state):
         """Build a network that maps state -> action values."""
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
-        return self.fc3(x)      # return self.sig(self.fc2(x))
+        return self.fc3(x)  # return self.sig(self.fc2(x))
 
     # from Udacity REINFORCE in Policy Gradient Methods
     def act(self, state):
@@ -44,8 +46,10 @@ class NetworkFullyConnected(nn.Module):
         action = m.sample()
         return action.item(), m.log_prob(action)
 
+
 class NetworkOneHiddenLayer(nn.Module):
     '''from CEM.py  Lesson2 Nr.9 Workspace'''
+
     def __init__(self, s_size, a_size, h_size=16):
         super(NetworkOneHiddenLayer, self).__init__()
         # state, hidden layer, action sizes
@@ -95,10 +99,12 @@ class NetworkOneHiddenLayer(nn.Module):
     #             break
     #     return episode_return
 
+
 class EnvUtils:
     def __init__(self):
-        self.states = np.empty(shape=(admin.num_of_parallel_networks, admin.number_of_agents ,admin.state_size ))
-        self.normalized_states = np.empty(shape=(admin.num_of_parallel_networks, admin.number_of_agents ,admin.state_size ))
+        self.states = np.empty(shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
+        self.normalized_states = np.empty(
+            shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
 
     def set_states(self, states):
         self.states = states
@@ -145,17 +151,19 @@ class EnvUtils:
         fAnstieg = (iInterpolationMaxNew - iInterpolationMinNew) / (iInterpolationMaxOrig - iInterpolationMinOrig)
         fOffset = (iInterpolationMaxOrig * iInterpolationMinNew - iInterpolationMinOrig * iInterpolationMaxNew) / (
                 iInterpolationMaxOrig - iInterpolationMinOrig)
-        if admin.lInterpolParam[2]:     # clip resulting normalized states if requested
+        if admin.lInterpolParam[2]:  # clip resulting normalized states if requested
             self.normalized_states = np.clip(fAnstieg * env_utils.states + fOffset, -1, 1)
         else:
             self.normalized_states = fAnstieg * env_utils.states + fOffset
         # print(f"aInterpolatedData: {self.normalized_states}")
         return None
 
+
 class MyAppLookupError(LookupError):
     """raise this when there's a lookup error for my app"""
     # source of this class:
     # https://stackoverflow.com/questions/2052390/manually-raising-throwing-an-exception-in-python/24065533#24065533
+
 
 class Administration:
     """defines looped interactions of the Agent (use case and training)"""
@@ -173,7 +181,7 @@ class Administration:
         self.target_reward = config_data_interact['target_reward']
         self.consecutive_episodes_required = config_data_interact['consecutive_episodes_required']
         self.network_type = config_data_interact['network_type']
-        self.num_of_parallel_networks = config_data_interact['num_of_parallel_networks']    # 50
+        self.num_of_parallel_networks = config_data_interact['num_of_parallel_networks']  # 50
         self.keep_weights_n_best_min = config_data_interact['keep_weights_n_best_min']
         self.keep_weights_n_best_mean = config_data_interact['keep_weights_n_best_mean']
         self.keep_weights_n_best_max = config_data_interact['keep_weights_n_best_max']
@@ -186,6 +194,10 @@ class Administration:
         self.keep_weights_n_worst_min_big_change = config_data_interact['keep_weights_n_worst_min_big_change']
         self.keep_weights_n_worst_mean_big_change = config_data_interact['keep_weights_n_worst_mean_big_change']
         self.keep_weights_n_worst_max_big_change = config_data_interact['keep_weights_n_worst_max_big_change']
+        self.noise_scale_best_small = config_data_interact['noise_scale_best_small']
+        self.noise_scale_best_big = config_data_interact['noise_scale_best_big']
+        self.noise_scale_worst = config_data_interact['noise_scale_worst']
+        self.sigma = config_data_interact['sigma']
         # self.epsilon_start = config_data_interact['epsilon_start']
         # self.epsilon_end = config_data_interact['epsilon_end']
         # self.epsilon_decay = config_data_interact['epsilon_decay']
@@ -194,11 +206,10 @@ class Administration:
         # self.batch_size = config_data_interact['batch_size']
         # self.gamma = config_data_interact['gamma']
         # self.tau = config_data_interact['tau']
-        self.sigma = config_data_interact['sigma']
         # self.learning_rate = config_data_interact['learning_rate']
         # self.update_target_every = config_data_interact['update_target_every']
         self.lInterpolParam = config_data_interact['lInterpolParam']
-        self.number_of_agents = config_data_interact['number_of_agents']        # 20
+        self.number_of_agents = config_data_interact['number_of_agents']  # 20
         self.agents_duplication_factor = config_data_interact['agents_duplication_factor']
         self.number_of_random_actions = config_data_interact['number_of_random_actions']
         self.env_train_mode = config_data_interact['env_train_mode']
@@ -211,6 +222,19 @@ class Administration:
         self.weightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
         self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
         self.state_size = 33
+        self.weights_dim = 612
+        # check correctness of keep_weights inputs
+        sum_of_keep_weights = self.keep_weights_n_best_min + self.keep_weights_n_best_mean + \
+                              self.keep_weights_n_best_max + self.keep_weights_n_best_min_small_change + \
+                              self.keep_weights_n_best_mean_small_change + self.keep_weights_n_best_max_small_change + \
+                              self.keep_weights_n_best_min_big_change + self.keep_weights_n_best_mean_big_change + \
+                              self.keep_weights_n_best_max_big_change + self.keep_weights_n_worst_min_big_change + \
+                              self.keep_weights_n_worst_mean_big_change + self.keep_weights_n_worst_max_big_change
+        if self.num_of_parallel_networks < sum_of_keep_weights:
+            raise MyAppLookupError(f"\nthe Number of parallel Networks ({self.num_of_parallel_networks}) is smaller than "
+                                   f"the Number of intended weights to keep ({sum_of_keep_weights})\n"
+                                   f"please change the <keep_weights...> or <num_of_parallel_networks> parameter "
+                                   f"in your config file ({args.config_file})")
 
     def init_agent(self):
         # examine the state space
@@ -231,82 +255,166 @@ class Administration:
                                    f"\"QNetwork\" or \"DoubleQNetwork\"")
         return agent_
 
-    def init_weightslist(self):
-        # e.g. shape =(50,612) with 50 different networks(weight-variations) and 612 weights per network
-        self.weightslist = self.sigma * np.random.randn(self.num_of_parallel_networks, agent.get_weights_dim())
-        self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
-        agent.set_weights(self.weightslist[0])
-        # print(
-        #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
-
-
-        # weights_pop = [weights + (self.sigma * np.random.randn(agent.get_weights_dim())) for i in
-        #                range(self.num_of_parallel_networks)]
-
-        return None
-
     def update_weightslist(self):
-        # sort and compare rewards (with self.rewards_all_networks)
-        #
-        # self.weightslist = \
-        #     [self.sigma * np.random.randn(agent.get_weights_dim()) for i in range(self.num_of_parallel_networks)]
-        #
-        #
-        # idx=self.rewards_one_episode.argsort()
-        # elite_idxs = rewards.argsort()[-n_elite:]
-        # elite_weights = [weights_pop[i] for i in elite_idxs]
-        #
-        # Agent.calc_mean_rewards()
-        # --> sort weights
-        # build new weights using best, worst and random
-        agent.set_weights(self.weightslist)
+        """ pick and reuse weights that delivered high rewards
+        add some noise to the weights
+        refill rest with random weights"""
+        # <self.nextweightslist> was initialized at train()
+
+        # idx: array with indexes that deliver rewards (rising rewards from start to end of list)
+        idx = np.array(self.rewards_all_networks.argsort(axis=1))
+        startidx = 0
+
+        # keep weights (amount: <self.keep_weights_n_best_min>) with best min_reward
+        # min_reward = self.rewards_all_networks[0]
+        # example:
+        # fill <nextweightslist> at position 0 and 1 (n=2) with weights that delivered the highest min_reward:
+        # n = 2 = <self.keep_weights_n_best_min> (keep the weights with 2 best min_rewards)
+        # weightslist_new[startidx:startidx+n, :] = weightslist[idx[:, -n:][0]]
+        # weightslist_new[0:2, :] = weightslist[idx[: ,-2][0]
+        # startidx=startidx+n
+        if self.keep_weights_n_best_min > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_min:][0]]
+        startidx = startidx + self.keep_weights_n_best_min
+
+        # keep weights with best mean_reward
+        # mean_reward = self.rewards_all_networks[1]
+        if self.keep_weights_n_best_mean > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_mean:][1]]
+        startidx = startidx + self.keep_weights_n_best_mean
+
+        # keep weights with best max_reward
+        # max_reward = self.rewards_all_networks[2]
+        if self.keep_weights_n_best_max > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_max:][2]]
+        startidx = startidx + self.keep_weights_n_best_max
+
+        # keep weights with best min_reward and add a small noise
+        if self.keep_weights_n_best_min_small_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min_small_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_min_small_change:][0]] \
+                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_min_small_change
+
+        # keep weights with best mean_reward and add a small noise
+        if self.keep_weights_n_best_mean_small_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean_small_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_mean_small_change:][1]] \
+                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_mean_small_change
+
+        # keep weights with best max_reward and add a small noise
+        if self.keep_weights_n_best_max_small_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max_small_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_max_small_change:][2]] \
+                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_max_small_change
+
+        # keep weights with best min_reward and add a lot of noise
+        if self.keep_weights_n_best_min_big_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min_big_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_min_big_change:][0]] \
+                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_min_big_change
+
+        # keep weights with best mean_reward and add a lot of noise
+        if self.keep_weights_n_best_mean_big_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean_big_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_mean_big_change:][1]] \
+                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_mean_big_change
+
+        # keep weights with best max_reward and add a lot of noise
+        if self.keep_weights_n_best_max_big_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max_big_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_max_big_change:][2]] \
+                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_max_big_change
+
+        # keep weights with worst min_reward and add a lot of noise
+        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_min_big_change, :] = \
+                self.weightslist[idx[:, :self.keep_weights_n_worst_min_big_change][0]] \
+                + self.noise_scale_worst * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_worst_min_big_change
+
+        # keep weights with worst mean_reward and add a lot of noise
+        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_mean_big_change, :] = \
+                self.weightslist[idx[:, :self.keep_weights_n_worst_mean_big_change][1]] \
+                + self.noise_scale_worst * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_worst_mean_big_change
+
+        # keep weights with worst max_reward and add a lot of noise
+        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_max_big_change, :] = \
+                self.weightslist[idx[:, :self.keep_weights_n_worst_max_big_change][2]] \
+                + self.noise_scale_worst * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_worst_max_big_change
+
+        # fill the rest with random weights
+        self.nextweightslist[startidx:, :] = self.sigma * np.random.rand(self.weights_dim)
+        self.weightslist = self.nextweightslist.copy()
         return None
 
     def train(self):
-        self.init_weightslist()
+        self.weights_dim = agent.get_weights_dim()
+        self.weightslist = self.sigma * np.random.randn(self.num_of_parallel_networks, agent.get_weights_dim())
+        self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
         # print(
         #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
         saved = False
         for i in range(self.episodes_train):
             for j in range(self.num_of_parallel_networks):
+                agent.set_weights(self.weightslist[j])
                 env_utils.get_random_start_state()
                 min_reward, mean_reward, max_reward = admin.get_rewards(trainmode=True)
                 self.rewards_all_networks[0, j] = min_reward
                 self.rewards_all_networks[1, j] = mean_reward
                 self.rewards_all_networks[2, j] = max_reward
+            # print(f"episode={i}\nrew_all_ep_0={self.rewards_all_networks.max(axis=1)[0]}\nrew_all_ep_1={self.rewards_all_networks.max(axis=1)[1]}\nrew_all_ep_2={self.rewards_all_networks.max(axis=1)[2]}")
             for k in range(3):
                 self.rewards_all_episodes[k, i] = self.rewards_all_networks.max(axis=1)[k]
             if i >= self.consecutive_episodes_required:
                 '''next 3 only for testing'''
-                rewards_deque =self.rewards_all_episodes[:, i-100:i+1]
-                rewards_deque_mean = self.rewards_all_episodes[:,i-100:i+1].mean(axis=1)
-                rewards_deque_max = self.rewards_all_episodes[:,i-100:i+1].mean(axis=1).max()
+                rewards_deque = self.rewards_all_episodes[:, i - 100:i + 1]
+                rewards_deque_mean = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)
+                rewards_deque_max = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1).max()
                 print(f"ci check_indexing in train(): rewards_deque_shape={rewards_deque.shape()} | should be (3,100)")
                 print(f"ci rewards_deque_mean={rewards_deque_mean} | should be of shape (3))")
                 print(f"ci rewards_deque_max={rewards_deque_max} | should be one value")
                 # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1).max() >= self.target_reward: # if either min or mean or max of Results reaches the goal value
                 # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1)[0] >= self.target_reward:    # if min of Results reaches the goal value
-                if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1)[1] >= self.target_reward:    # if mean of Results reaches the goal value
-                    print(f"target reward reached in episode: {i-self.consecutive_episodes_required}: mean_of_means_of_rewards={self.rewards_all_episodes[:,i-100:i+1].mean(axis=1)[1]}")
-                    last_max_reward_positions = np.argmax(self.rewards_all_networks, axis=1)        # np.argmax gives first max position (even if there are multiple max positions)
+                if self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[
+                    1] >= self.target_reward:  # if mean of Results reaches the goal value
+                    print(
+                        f"target reward reached in episode: {i - self.consecutive_episodes_required}: mean_of_means_of_rewards={self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1]}")
+                    last_max_reward_positions = np.argmax(self.rewards_all_networks,
+                                                          axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
                     print(f"ci last_max_reward_positions= {last_max_reward_positions}")
-                    print(f"ci corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
+                    print(
+                        f"ci corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
                     max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
                     max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
                     max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
                     if self.save_weights and not saved:
-                        save_weights(max_reward_weights_min, max_reward_weights_mean, max_reward_weights_max, "weights_s_" + self.save_indices)
+                        save_weights(max_reward_weights_min, max_reward_weights_mean, max_reward_weights_max,
+                                     "weights_s_" + self.save_indices)
                         saved = True
                     break
+            # print(f"rewards_all_nw: {self.rewards_all_networks}")
+            # print(f"\n\nrewards_all_ep: {self.rewards_all_episodes}")
             self.update_weightslist()
         if self.save_weights:
-            last_max_reward_positions = np.argmax(self.rewards_all_networks, axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
+            last_max_reward_positions = np.argmax(self.rewards_all_networks,
+                                                  axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
             print(f"ci Ende: last_max_reward_positions= {last_max_reward_positions}")
             print(f"ci Ende: corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
             max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
             max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
             max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
-            save_weights(max_reward_weights_min, max_reward_weights_mean, max_reward_weights_max, "weights_g_" + self.save_indices)
+            save_weights(max_reward_weights_min, max_reward_weights_mean, max_reward_weights_max,
+                         "weights_g_" + self.save_indices)
         agent.plot_results()
         return None
 
@@ -363,7 +471,8 @@ class Administration:
     #     plot_scores(scores, epsilones)
     #     return None
 
-    def test(self, episodes=10,):
+    def test(self, episodes=10, ):
+        self.weights_dim = agent.get_weights_dim()
         # initialize
         # env = environment
         # agent = Agent()
@@ -379,6 +488,7 @@ class Administration:
                 means_of_means_of_sum_of_rewards.append(np.mean(rewards_deque))
         agent.plot_results(rewards_test)
         return None
+
     # def test(self):
     #     """"""
     #     '''
@@ -431,25 +541,26 @@ class Administration:
             env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
         env_utils.normalize_states()
         for _ in range(max_steps):
-            actions = agent(torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
+            actions = agent(
+                torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
             '''use same action multiple times'''
             for i_same_act in range(n_same_act):
                 env_info = env.step(actions)[brain_name]
                 rewards_sum += np.array(env_info.rewards)
                 # print(f"env_info.rewards: {env_info.rewards}")
-                if env_info.local_done:               # if is_done .... from Udacity
+                if env_info.local_done:  # if is_done .... from Udacity
                     break
             env_utils.states = env_info.vector_observations
             env_utils.normalize_states()
         return rewards_sum.min(), rewards_sum.mean(), rewards_sum.max()
 
     def plot_results(self, rewards):
-        if rewards.size()[0]==3:
+        if rewards.size()[0] == 3:
             ''' Training:
             5 best Networks: reward: max of the 20 agents (of Sum in one Episode) over Episodes
             5 best Networks: reward: mean of the 20 agents (of Sum in one Episode) over Episodes
             5 best Networks: reward: min of the 20 agents (of Sum in one Episode) over Episodes '''
-        elif  rewards.size()[0]==1:
+        elif rewards.size()[0] == 1:
             ''' Test:
             tested Network: reward: max of the 20 agents (of Sum in one Episode) over Episodes
             tested Network: reward: mean of the 20 agents (of Sum in one Episode) over Episodes
@@ -463,7 +574,7 @@ if __name__ == "__main__":
     # Idea of parser: https://docs.python.org/2/howto/argparse.html
     parser = argparse.ArgumentParser(description='Interacting Agent')
     parser.add_argument('--train', type=str, default='True', help='True: train the agent; '
-                                                                   'default=False: test the agent')
+                                                                  'default=False: test the agent')
     parser.add_argument('--config_file', type=str, default='config.json',
                         help='Name of config_file in root of Continuous_Control')
     parser.add_argument('--getminmax', type=str, default='False',

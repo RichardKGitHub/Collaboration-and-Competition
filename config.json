@@ -9,40 +9,55 @@
 # "path_load": "archive/",
 # "path_save": "results/",
 
-"save_weights": true,
+"save_weights": false,
 # "save_plot": true,
 # "show_plot": false,
 
-"episodes_train": 3,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
+"episodes_train": 1,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 100,                 # Number of episodes if --train==False
 "target_reward": 13,
 "consecutive_episodes_required": 100, # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
 
 "network_type": "NetworkOneHiddenLayer",     # expected: NetworkFullyConnected, NetworkOneHiddenLayer
-"num_of_parallel_networks": 50,               # number of Networks with varying weights that get tested during training
+"num_of_parallel_networks": 10,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
 "keep_weights_n_best_min": 1,               # 4 no change
 "keep_weights_n_best_mean": 2,
 "keep_weights_n_best_max": 1,
-"keep_weights_n_best_min_small_change": 5,  # 20 best small change
-"keep_weights_n_best_mean_small_change": 10,
-"keep_weights_n_best_max_small_change": 5,
-"keep_weights_n_best_min_big_change": 2,    # 12 best big change
-"keep_weights_n_best_mean_big_change": 4,
-"keep_weights_n_best_max_big_change": 2,
-"keep_weights_n_worst_min_big_change": 1,   # 4 worst
-"keep_weights_n_worst_mean_big_change": 2,
-"keep_weights_n_worst_max_big_change": 1,
+"keep_weights_n_best_min_small_change": 0,  # 20 best small change
+"keep_weights_n_best_mean_small_change": 0,
+"keep_weights_n_best_max_small_change": 0,
+"keep_weights_n_best_min_big_change": 0,    # 12 best big change
+"keep_weights_n_best_mean_big_change": 0,
+"keep_weights_n_best_max_big_change": 0,
+"keep_weights_n_worst_min_big_change": 0,   # 4 worst big change
+"keep_weights_n_worst_mean_big_change": 0,
+"keep_weights_n_worst_max_big_change": 0,
+#"num_of_parallel_networks": 50,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
+#"keep_weights_n_best_min": 1,               # 4 no change
+#"keep_weights_n_best_mean": 2,
+#"keep_weights_n_best_max": 1,
+#"keep_weights_n_best_min_small_change": 5,  # 20 best small change
+#"keep_weights_n_best_mean_small_change": 10,
+#"keep_weights_n_best_max_small_change": 5,
+#"keep_weights_n_best_min_big_change": 2,    # 12 best big change
+#"keep_weights_n_best_mean_big_change": 4,
+#"keep_weights_n_best_max_big_change": 2,
+#"keep_weights_n_worst_min_big_change": 1,   # 4 worst big change
+#"keep_weights_n_worst_mean_big_change": 2,
+#"keep_weights_n_worst_max_big_change": 1,
+"noise_scale_best_small": 0.005,
+"noise_scale_best_big": 0.01,
+"noise_scale_worst": 0.05,
+"sigma": 0.5,             # factor for the scaling of the np.random.randn() weight initialisation
 # "epsilon_start": 1.0,
 # "epsilon_end": 0.01,
 # "epsilon_decay": 0.995,
 # "epsilon_test": 0.01,     #epsilon during test mode
-
 # "buffer_size": 100000,    # replay buffer size
 # "batch_size": 64,         # minibatch size
 # "gamma": 0.995,           # discount factor
 # "tau": 1e-3,              # for soft update of target parameters
-"sigma": 0.5,             # factor for the scaling of the np.random.randn() weight initialisation
 # "learning_rate": 5e-4,    # learning rate
 # "update_target_every": 4, # how often to update the network
 "lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -14, -3, -4, -14, -11, -15, -11, -11, -10, -1, -1, -1, -1, -14,
