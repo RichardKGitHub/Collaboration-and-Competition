@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import argparse
 import commentjson
+import datetime
 import matplotlib.pyplot as plt
 from torch.distributions import Categorical
 from unityagents import UnityEnvironment
@@ -52,7 +53,11 @@ class NetworkFullyConnected(nn.Module):
 class NetworkOneHiddenLayer(nn.Module):
     '''from CEM.py  Lesson2 Nr.9 Workspace'''
 
-    def __init__(self, s_size, a_size, h_size=16):
+    def __init__(self, s_size, a_size, h_size=8):
+        # 00: h_size=16
+        # 01: h_size=16
+        # 02: h_size=8
+
         super(NetworkOneHiddenLayer, self).__init__()
         # state, hidden layer, action sizes
         self.s_size = s_size
@@ -86,6 +91,7 @@ class NetworkOneHiddenLayer(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.tanh(self.fc2(x))
+        x = 2*x - 1
         return x.cpu().data
 
     # def evaluate(self, weights, gamma=1.0, max_t=5000):
@@ -265,7 +271,7 @@ class Administration:
         add some noise to the weights
         refill rest with random weights"""
         # <self.nextweightslist> was initialized at train()
-
+        # print(f"weights_pre: {self.weightslist}")
         # idx: array with indexes that deliver rewards (rising rewards from start to end of list)
         idx = np.array(self.rewards_all_networks.argsort(axis=1))
         startidx = 0
@@ -360,15 +366,18 @@ class Administration:
         # fill the rest with random weights
         self.nextweightslist[startidx:, :] = self.sigma * np.random.rand(self.weights_dim)
         self.weightslist = self.nextweightslist.copy()
+        # print(f"weights_post: {self.weightslist}")
         return None
 
     def train(self):
         self.weights_dim = agent.get_weights_dim()
         self.weightslist = self.sigma * np.random.randn(self.num_of_parallel_networks, agent.get_weights_dim())
+        # self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
         self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
         # print(
         #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
         saved = False
+        time_new = time_start = datetime.datetime.now()
         for i in range(self.episodes_train):
             for j in range(self.num_of_parallel_networks):
                 agent.set_weights(self.weightslist[j])
@@ -411,6 +420,20 @@ class Administration:
             # print(f"rewards_all_nw: {self.rewards_all_networks}")
             # print(f"\n\nrewards_all_ep: {self.rewards_all_episodes}")
             self.update_weightslist()
+            if (i + 1) % 25 == 0:
+                time_old = time_new
+                time_new = datetime.datetime.now()
+                if i > 99:
+                    print('\rMin_Score {}\tAverage_Score: {:.2f}\tMax_Score {}\tEpisode {}/{}\tTime since start: {}'
+                          '\tdeltaTime: {}'.format(self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[0],
+                                                   self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1],
+                                                   self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[2],
+                                                   i+1, self.episodes_train, str(time_new-time_start).split('.')[0],
+                                                   str(time_new-time_old).split('.')[0]), end="")
+                else:
+                    print('\rMin_Score - \tAverage_Score: - \tMax_Score - \tEpisode {}/{}\tTime since start: {}'
+                          '\tdeltaTime: {}'.format(i + 1, self.episodes_train, str(time_new - time_start).split('.')[0],
+                                                   str(time_new - time_old).split('.')[0]), end="")
         admin.plot_results()
         if self.save_weights:
             # last_max_reward_positions = np.argmax(self.rewards_all_networks,
@@ -424,12 +447,12 @@ class Administration:
             np.save(self.path_save + 'scores_g' + self.save_indices, self.rewards_all_networks)
         return None
 
-    def test(self, episodes=10, ):
+    def test(self):
         self.weights_dim = agent.get_weights_dim()
-        self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices)
-        # self.rewards_all_networks = np.load(self.path_load + 'scores_' + self.load_indices)
+        self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
+        self.rewards_all_networks = np.load(self.path_load + 'scores_' + self.load_indices)
         # self.update_weightslist()
-        agent.set_weights(self.weightslist[self.load_scores_version][0])
+        agent.set_weights(self.weightslist[self.load_scores_version])
         # initialize
         # env = environment
         # agent = Agent()
@@ -437,7 +460,7 @@ class Administration:
         rewards_test = []
         rewards_deque = deque(maxlen=self.consecutive_episodes_required)
         means_of_means_of_sum_of_rewards = []
-        for i in range(episodes):
+        for i in range(self.episodes_test):
             env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
             env_utils.normalize_states()
             reward_min, reward_mean, reward_max = agent.get_rewards(env, trainmode=False)
@@ -490,6 +513,7 @@ class Administration:
         # get trajectories and discount them --> new Rewards --> not necessary
         # --> 20 Robots per weight for n episodes --> get weights (raw)
         rewards_sum = np.zeros(self.number_of_agents)
+        actions_list = []
         # if trainmode:
         #     for _ in range(self.number_of_random_actions):
         #         actions = np.clip(np.random.randn(self.number_of_agents, 4) / 4, a_min=-1, a_max=1)
@@ -501,6 +525,7 @@ class Administration:
         for _ in range(self.max_steps_per_training_episode):
             actions = agent(
                 torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
+            actions_list.append(actions)
             '''use same action multiple times'''
             for i_same_act in range(self.num_of_same_act_repetition):
                 env_info = env.step(actions)[brain_name]
@@ -510,6 +535,9 @@ class Administration:
                     break
             env_utils.states = env_info.vector_observations
             env_utils.normalize_states()
+        # print(f"actions= {actions_list}")
+        # print(f"actions_min={min(actions_list())}")
+        # print(f"actions_max={max(actions_list())}")
         return rewards_sum.min(), rewards_sum.mean(), rewards_sum.max()
 
     def plot_results(self):
@@ -527,8 +555,8 @@ class Administration:
             Testing:
         same plots, but always from the same Network
         '''
-        print(f"plot_results() rewards_all_episodes={self.rewards_all_episodes}")
-        print(f"plot_results() rewards_all_episodes[0]={self.rewards_all_episodes[0]}")
+        # print(f"plot_results() rewards_all_episodes={self.rewards_all_episodes}")
+        # print(f"plot_results() rewards_all_episodes[0]={self.rewards_all_episodes[0]}")
 
         x_plot = np.arange(len(self.rewards_all_episodes[0]))
         numOfPlots = 3
@@ -554,8 +582,8 @@ class Administration:
         #     # plt.ylabel('epsilon')
         #     # plt.xlabel('Episode #')
         #     # fig.add_subplot(211)
-        else:
-            print("plot_results(): rewards of wrong Dimension")
+        # else:
+        #     print("plot_results(): rewards of wrong Dimension")
 
         # ''' Training:
         # max of min_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
