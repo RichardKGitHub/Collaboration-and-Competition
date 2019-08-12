@@ -1,124 +1,24 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # Continuous Control Project
-
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-# import torchvision.transforms.functional as TF    # used for Normalization
-from torch.distributions import Categorical
+import argparse
+import commentjson
+import datetime
 import matplotlib.pyplot as plt
-import progressbar as pb
-import numpy as np
-from parallelEnv import parallelEnv
+from torch.distributions import Categorical
 from unityagents import UnityEnvironment
 from collections import deque
 
-policy_name = 'PPO.policy'
 
 
-# check device
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print("using device: ", device)
-
-env = UnityEnvironment(file_name='/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64')
-
-# Environments contain **_brains_** which are responsible for deciding the actions of their associated agents. Here we check for the first brain available, and set it as the default brain we will be controlling from Python.
-
-# get the default brain
-brain_name = env.brain_names[0]
-brain = env.brains[brain_name]
-
-# reset the environment
-env_info = env.reset(train_mode=True)[brain_name]
-
-# number of agents
-num_agents = len(env_info.agents)
-print('Number of agents:', num_agents)
-
-# size of each action
-action_size = brain.vector_action_space_size
-print('Size of each action:', action_size)
-
-# examine the state space 
-states = env_info.vector_observations
-state_size = states.shape[1]
-print('There are {} agents. Each observes a state with length: {}'.format(states.shape[0], state_size))
-print('The state for the first agent looks like:', states[0])
-
-env_info = env.reset(train_mode=True)[brain_name]      # reset the environment
-# states = env_info.vector_observations                  # get the current state (for each agent)
-# scores = np.zeros(num_agents)                          # initialize the score (for each agent)
-# count = 0
-# while True:
-#
-#     actions = np.random.randn(num_agents, action_size) # select an action (for each agent)
-#     actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
-#     print(f"actions: {actions}\nbrain_name={brain_name}") if count == 0 else None
-#     count += 1
-#     env_info = env.step(actions)[brain_name]           # send all actions to tne environment
-#     next_states = env_info.vector_observations         # get next state (for each agent)
-#     rewards = env_info.rewards                         # get reward (for each agent)
-#     dones = env_info.local_done                        # see if episode finished
-#     scores += env_info.rewards                         # update the score (for each agent)
-#     states = next_states                               # roll over states to next time step
-#     if np.any(dones):                                  # exit loop if episode finished
-#         break
-# print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
-
-# based on udacity pong exercise structure
-class Policy(nn.Module):
-
-    def __init__(self):
-        super(Policy, self).__init__()
-
-        # # Calculation of outputsize
-        # 80x80x2 to outputsize x outputsize
-        # outputsize = (inputsize - kernel_size + stride)/stride
-        # (round up if not an integer)
-
-        # 80x80x2 to 38x38x4
-        # 2 channel from the stacked frame
-        self.conv1 = nn.Conv2d(2, 4, kernel_size=6, stride=2, bias=False)
-        # 38x38x4 to 9x9x32
-        self.conv2 = nn.Conv2d(4, 16, kernel_size=6, stride=4)
-        self.size = 9 * 9 * 16
-
-        # two fully connected layer
-        self.fc1 = nn.Linear(self.size, 256)
-        self.fc2 = nn.Linear(256, 1)
-
-        # Sigmoid to
-        self.sig = nn.Sigmoid()
-
-        # # output = 20x20 here
-        # self.conv = nn.Conv2d(2, 1, kernel_size=4, stride=4)
-        # self.size=1*20*20
-        #
-        # # 1 fully connected layer
-        # self.fc = nn.Linear(self.size, 1)
-        # self.sig = nn.Sigmoid()
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        # flatten the tensor
-        x = x.view(-1, self.size)
-        x = F.relu(self.fc1(x))
-        return self.sig(self.fc2(x))
-
-        # x = F.relu(self.conv(x))
-        # # flatten the tensor
-        # x = x.view(-1,self.size)
-        # return self.sig(self.fc(x))
-
-class PolicyFullyConnected(nn.Module):
+class NetworkFullyConnected(nn.Module):
     """Actor (Policy) Model."""
     ''' 
     this class was provided by Udacity Inc.
     '''
+
     def __init__(self, state_size, action_size, seed=1203, fc1_units=21, fc2_units=10):
         """Initialize parameters and build model.
         Params
@@ -129,17 +29,17 @@ class PolicyFullyConnected(nn.Module):
             fc1_units (int): Number of nodes in first hidden layer
             fc2_units (int): Number of nodes in second hidden layer
         """
-        super(PolicyFullyConnected, self).__init__()
+        super(NetworkFullyConnected, self).__init__()
         self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, action_size)    # self.sig = nn.Sigmoid()
+        self.fc3 = nn.Linear(fc2_units, action_size)  # self.sig = nn.Sigmoid()
 
     def forward(self, state):
         """Build a network that maps state -> action values."""
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
-        return self.fc3(x)      # return self.sig(self.fc2(x))
+        return self.fc3(x)  # return self.sig(self.fc2(x))
 
     # from Udacity REINFORCE in Policy Gradient Methods
     def act(self, state):
@@ -150,390 +50,626 @@ class PolicyFullyConnected(nn.Module):
         return action.item(), m.log_prob(action)
 
 
-# class train:
-#
-#     def __init__(self):
-#         super(train, self).__init__()
+class NetworkOneHiddenLayer(nn.Module):
+    '''from CEM.py  Lesson2 Nr.9 Workspace'''
 
-# from Udacity REINFORCE in Policy Gradient Methods
-def reinforce(self, n_episodes=1000, max_t=1000, gamma=1.0, print_every=100):
-    policy = PolicyFullyConnected().to(device)
-    optimizer = optim.Adam(policy.parameters(), lr=1e-2)
+    def __init__(self, s_size, a_size, h_size=8):
+        # 00: h_size=16
+        # 01: h_size=16
+        # 02: h_size=8
 
-    scores_deque = deque(maxlen=100)
-    scores = []
-    for i_episode in range(1, n_episodes + 1):
-        saved_log_probs = []
-        rewards = []
-        state = env.reset()
-        for t in range(max_t):
-            action, log_prob = policy.act(state)
-            saved_log_probs.append(log_prob)
-            state, reward, done, _ = env.step(action)
-            rewards.append(reward)
-            if done:
-                break
-        scores_deque.append(sum(rewards))
-        scores.append(sum(rewards))
+        super(NetworkOneHiddenLayer, self).__init__()
+        # state, hidden layer, action sizes
+        self.s_size = s_size
+        self.h_size = h_size
+        self.a_size = a_size
+        # define layers
+        self.fc1 = nn.Linear(self.s_size, self.h_size)
+        self.fc2 = nn.Linear(self.h_size, self.a_size)
 
-        discounts = [gamma ** i for i in range(len(rewards) + 1)]
-        R = sum([a * b for a, b in zip(discounts, rewards)])
+    def set_weights(self, weights):
+        s_size = self.s_size
+        h_size = self.h_size
+        a_size = self.a_size
+        # separate the weights for each layer
+        fc1_end = (s_size * h_size) + h_size
+        # print(f"weights.shape: {weights.shape}")
+        # print(f"weights[:s_size * h_size].shape: {weights[:s_size * h_size].shape}")
+        fc1_W = torch.from_numpy(weights[:s_size * h_size].reshape(s_size, h_size))
+        fc1_b = torch.from_numpy(weights[s_size * h_size:fc1_end])
+        fc2_W = torch.from_numpy(weights[fc1_end:fc1_end + (h_size * a_size)].reshape(h_size, a_size))
+        fc2_b = torch.from_numpy(weights[fc1_end + (h_size * a_size):])
+        # set the weights for each layer
+        self.fc1.weight.data.copy_(fc1_W.view_as(self.fc1.weight.data))
+        self.fc1.bias.data.copy_(fc1_b.view_as(self.fc1.bias.data))
+        self.fc2.weight.data.copy_(fc2_W.view_as(self.fc2.weight.data))
+        self.fc2.bias.data.copy_(fc2_b.view_as(self.fc2.bias.data))
 
-        policy_loss = []
-        for log_prob in saved_log_probs:
-            policy_loss.append(-log_prob * R)
-        policy_loss = torch.cat(policy_loss).sum()
+    def get_weights_dim(self):
+        return (self.s_size + 1) * self.h_size + (self.h_size + 1) * self.a_size
 
-        optimizer.zero_grad()
-        policy_loss.backward()
-        optimizer.step()
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.tanh(self.fc2(x))
+        x = 2*x - 1
+        return x.cpu().data
 
-        if i_episode % print_every == 0:
-            print('Episode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
-        if np.mean(scores_deque) >= 195.0:
-            print('Environment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode - 100,
-                                                                                       np.mean(scores_deque)))
-            break
-
-    return scores
-
-
-# from Udacity pong example pong-PPO.py:
-def train(env=env, policy_name='PPO.policy', device=device):
-
-    print(f" state_size={state_size}; action_size={action_size}")
-    policy = PolicyFullyConnected(state_size=state_size, action_size=action_size).to(device)
-    optimizer = optim.Adam(policy.parameters(), lr=1e-4)
-
-    # training loop max iterations
-    episode = 2
-    n_agents = 20
-    tmax = 150
-    SGD_epoch = 3
-    discount_rate = .99
-    epsilon = 0.1
-    epsilon_decay = 0.999
-    beta = .01
-
-    # widget bar to display progress
-    # get_ipython().system('pip install progressbar')
-    widget = ['training loop: ', pb.Percentage(), ' ',
-              pb.Bar(), ' ', pb.ETA()]
-    timer = pb.ProgressBar(widgets=widget, maxval=episode).start()
-
-    # # envs = parallelEnv('PongDeterministic-v4', n=n_agents, seed=1234)
-    # envs = parallelEnv(env, n=n_agents, seed=1234)
+    # def evaluate(self, weights, gamma=1.0, max_t=5000):
+    #     self.set_weights(weights)
+    #     episode_return = 0.0
+    #     state = self.env.reset()
+    #     for t in range(max_t):
+    #         state = torch.from_numpy(state).float().to(device)
+    #         action = self.forward(state)
+    #         state, reward, done, _ = self.env.step(action)
+    #         episode_return += reward * math.pow(gamma, t)
+    #         if done:
+    #             break
+    #     return episode_return
 
 
+class EnvUtils:
+    def __init__(self):
+        self.states = np.empty(shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
+        self.normalized_states = np.empty(
+            shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
 
+    def set_states(self, states):
+        self.states = states
+        self.normalize_states()
+        return None
 
-    # keep track of progress
-    mean_rewards = []
-    all_total_rewards = []
-    all_acrions = []
-    for e in range(episode):
-
-        # collect trajectories
-        # old_probs, states_, actions_, rewards_ = train.collect_trajectories(envs, policy, tmax=tmax)
-        states_, actions_, rewards_ = collect_trajectories(env, policy, tmax=tmax)
-        # print('old_probs={}\nstates_={}\nactions_={}\nrewards_={}'.format(old_probs, states_, actions_, rewards_))
-        total_rewards = np.sum(rewards_, axis=0)
-
-        # from clipped_surrogate (till rewards....)
-        discount = 0.995
-        discount = discount ** np.arange(len(rewards_))
-        rewards = np.asarray(rewards_) * discount[:, np.newaxis]
-
-        # convert rewards to future rewards
-        rewards_future = rewards[::-1].cumsum(axis=0)[::-1]
-
-        mean = np.mean(rewards_future, axis=1)
-        std = np.std(rewards_future, axis=1) + 1.0e-10
-
-        rewards_normalized = (rewards_future - mean[:, np.newaxis]) / std[:, np.newaxis]
-
-        # convert everything into pytorch tensors and move to gpu if available
-        actions_cs = torch.tensor(actions_, dtype=torch.int8, device=device)
-        # old_probs_cs = torch.tensor(old_probs, dtype=torch.float, device=device)
-        rewards_cs = torch.tensor(rewards_normalized, dtype=torch.float, device=device)
-
-        # gradient ascent step
-        for _ in range(SGD_epoch):
-            # L = -train.clipped_surrogate(policy, old_probs, states_, actions_, rewards_, epsilon=epsilon, beta=beta)
-            L = -clipped_surrogate(policy, states_, actions_cs, rewards_cs, epsilon=epsilon, beta=beta)
-            # print(f"L: {L}")
-            optimizer.zero_grad()
-            L.backward()
-            optimizer.step()
-            del L
-
-        # the clipping parameter reduces as time goes on
-        epsilon *= epsilon_decay
-
-        # the regulation term also reduces
-        # this reduces exploration in later runs
-        beta *= .995
-        # print(f"actions:{actions_}")
-        # print(f"states:{states_}")
-        # actions_min=min(actions_)
-        # actions_max=max(actions_)
-        # actions_mean=np.mean(actions_)
-        # actions_std=np.std(actions_)
-        #
-        # states_min=min(states_)
-        # states_max=max(states_)
-        # states_mean=np.mean(states_)
-        # states_std=np.std(states_)
-
-        # get the average reward of the parallel environments
-        mean_rewards.append(np.mean(total_rewards))
-        all_total_rewards.append(total_rewards)
-        all_acrions.append(actions_)
-
-        # display some progress every 20 iterations
-        if (e + 1) % 20 == 0:
-            print("Episode: {0:d}, score: {1:f}".format(e + 1, np.mean(total_rewards)))
-            # print(total_rewards)
-
-        # update progress widget bar
-        timer.update(e + 1)
-
-    timer.finish()
-
-    # save your policy!
-    # torch.save(policy, policy_name)
-    # https://discuss.pytorch.org/t/picklingerror-when-using-torch-save/3362
-    torch.save(policy.state_dict(), policy_name)
-    # policy.state_dict()
-
-    rewards = np.array(all_total_rewards)
-    # print(f"rewards: {rewards}")
-    # print(f"actions= {all_acrions}")
-    x_plot = np.arange(len(rewards))
-    colums = 4
-    numOfPlots = n_agents
-    for plot_number in range(numOfPlots):
-        plt.subplot(numOfPlots / colums, colums, plot_number + 1)
-        plt.plot(x_plot, rewards[:, plot_number], '.-')
-        # plt.title('A tale of 2 subplots')
-        # plt.ylabel('Damped oscillation')
-    plt.show()
-
-# from udacity pong exercise pong_utils.py
-# collect trajectories for a parallelized parallelEnv object
-# def collect_trajectories(envs, policy, tmax=200, nrand=5):
-def collect_trajectories(env_tr, policy, tmax=200, nrand=5, nsameact=3):
-
-    # number of parallel instances
-    # n = len(envs.ps)
-    n = 20
-
-    # initialize returning lists and start the game!
-    states_list = []
-    rewards_list = []
-    probs_list = []
-    actions_list = []
-
-    # envs.reset()
-    #
-    # # start all parallel agents
-    # envs.step([1] * n)
-
-    env_info_tr = env_tr.reset(train_mode=True)[brain_name]  # reset the environment
-
-    # perform nrand random steps to get a random starting point
-    for _ in range(nrand):
-        actions_tr = np.clip(np.random.randn(n, 4)/4, a_min=-1, a_max=1)
-        # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
-        env_info_tr = env_tr.step(actions_tr)[brain_name]
-        rewards_tr = env_info_tr.rewards  # get reward (for each agent)
-        # print(f"rewards in loop: {rewards_tr}")
-        # print(F"rewards_size: {len(rewards_tr)}")
-    states_tr = env_info_tr.vector_observations  # get next state (for each agent)     returns list of 20 lists
-    # print(f"states1234: {states_tr}")
-    # print(f"states_len: {len(states_tr)}")
-    # print(f"states_shape: {states_tr.shape()}")
-    for t in range(tmax):
-
-        # probs will only be used as the pi_old
-        # no gradient propagation is needed
-        # so we move it to the cpu
-        # probs = policy(state).squeeze().cpu().detach().numpy()
-
-        #  Expected object of type torch.cuda.FloatTensor but found type torch.DoubleTensor for argument #4 'mat1'
-        # print(f"states:size1={states_2.size()}")
-        states_tr_1 = torch.tensor(states_tr)
-        # print(f"states:size2={states_2.size()}")    # --> states:size2=torch.Size([20, 33])
-        # states_2 = torch.from_numpy(states_2)
-        states_tr_1 = states_tr.float().to(device)
-
-        # print(f"states_2={states_2}")
-        actions_tr = policy(states_tr).squeeze().cpu().detach().numpy()
-        # actions_1 = policy(states_2).squeeze().detach().cpu().numpy()
-
-        # print(f"actions_1 with states_2 input={actions_1}")
-
-        '''use same action multiple times'''
-        rewards_av_list = []
-        for i_same_act in range(nsameact):
-            env_info_tr = env_tr.step(actions_tr)[brain_name]
-            states_tr = env_info_tr.vector_observations  # get next state (for each agent)
-            rewards_tr = env_info_tr.rewards  # get reward (for each agent)
-            # print(f"rewards in loop: {rewards_tr}")
-            is_done = env_info_tr.local_done  # see if episode finished
-            rewards_av_list.append(rewards_tr)
-        rewards = np.mean(rewards_av_list)
-
-        # env_info_1 = env_tr.step(actions_tr)[brain_name]
-        # env_info_2 = env_tr.step(actions_tr)[brain_name]
-        # # states_3, rewards_3, is_done, _ = envs.step(actions_1)
-        # states_tr = env_info_1.vector_observations  # get next state (for each agent)
-        # rewards_1 = env_info_1.rewards  # get reward (for each agent)
-        # # states_2 = env_info_2.vector_observations  # get next state (for each agent)
-        # rewards_2 = env_info_2.rewards  # get reward (for each agent)
-        # is_done = env_info_2.local_done  # see if episode finished
-
-        # print(f"rewards_1: {len(rewards_1)} rewards_2: {len(rewards_2)} ") if t == 0 else None
-        # rewards = np.array(rewards_1) + np.array(rewards_2) # + rewards_3
-        # print(f"rewards: {rewards.shape}") if t == 0 else None
-
-        # store the result
-        states_list.append(states_tr_1)
-        rewards_list.append(rewards)
-        actions_list.append(actions_tr)
-
-        # # stop if any of the trajectories is done
-        # # we want all the lists to be rectangular
-        # if is_done:
-        #     print(f"is_done in t={t}") if t <= 50 else None
-        #     break
-
-    return states_list, actions_list, rewards_list
-
-def clipped_surrogate(policy, states, actions, rewards, discount=0.995, epsilon=0.1, beta=0.01):
-
-    # # convert states to policy (or probability)
-    # # new_probs = train.states_to_prob(policy, states)
-    # new_probs = states_to_prob(policy, states)
-    # # new_probs = torch.where(actions == RIGHT, new_probs, 1.0 - new_probs)
-    # # new_probs = actions
-    # # ratio for clipping
-
-    states = torch.tensor(states)
-    states = states.float().to(device)
-    # print(f"states_2={states_2}")
-    # actions_cs_ = policy(states).squeeze().cpu().detach().numpy()
-    # actions_cs_ = policy(states)
-    # print(f"actions_CS={actions_cs_}")
-    # new_probs_cs = (torch.tensor(actions_cs_, dtype=torch.float, device=device) + 1) / 2
-    # print(f"new_probs_cs={new_probs_cs}")
-    # ratio = new_probs_cs / old_probs
-
-    '''ratio'''
-    new_probs = (policy(states) + 1) / 2
-    # print(f"new_probs={new_probs}")
-    ratio = new_probs / old_probs
-
-    # clipped function
-    clip = torch.clamp(ratio, 1 - epsilon, 1 + epsilon)
-    # print(f"ratio: {ratio}\nclip: {clip}\nrewards: {rewards}")
-    # print(f"dimratio: {ratio.size()}\ndimclip: {clip.size()}\ndimrewards: {rewards.size()}")
-    # print(f"rewards__{rewards}")
-    # clipped_surrogate = torch.min(ratio * torch.tensor(rewards).view(1,20,1), clip * torch.tensor(rewards).view(1,20,1))
-    clipped_surrogate = torch.min(ratio * rewards.view(rewards.size()[-2], 20, 1),clip * rewards.view(rewards.size()[-2], 20, 1))
-
-    # print(f"clipped_surrogate = {clipped_surrogate}")
-    # include a regularization term
-    # this steers new_policy towards 0.5
-    # add in 1.e-10 to avoid log(0) which gives nan
-    # print(f"new_probs={new_probs_cs}\nold_probs={old_probs}")
-
-    # entropy = -(new_probs_cs * torch.log(old_probs + 1.e-10) + \
-    #             (1.0 - new_probs_cs) * torch.log(1.0 - old_probs + 1.e-10))
-    entropy = -(new_probs * torch.log(old_probs + 1.e-10) + \
-                (1.0 - new_probs) * torch.log(1.0 - old_probs + 1.e-10))
-    # # print(f"entropy = {entropy}\nbeta = {beta}")
-    # # this returns an average of all the entries of the tensor
-    # # effective computing L_sur^clip / T
-    # # averaged over time-step and number of trajectories
-    # # this is desirable because we have normalized our rewards
-
-    # c_L = clipped_surrogate + beta * entropy
-    # # print(f"c_L={c_L}\nc_L.size()={c_L.size()}")
-    # L=c_L.mean([-2]).view(4)
-    # # L=c_L.mean()
-    # # print(f"L={L}\nL.size()={L.size()}")
-    # return L
-    return torch.mean(clipped_surrogate + beta * entropy)
-
-def get_min_max_state(env=env, episodes=1000):
-    env_info = env.reset(train_mode=True)[brain_name]  # reset the environment
-    # perform nrand random steps to get a random starting point
-    states=[]
-    actions_=[]
-    n=20
-    for _ in range(episodes):
-        for _ in range(400):
-            actions = np.clip(np.random.randn(n, 4) / 4, a_min=-1, a_max=1)
-            # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
+    def get_random_start_state(self):
+        for _ in range(admin.number_of_random_actions):
+            actions = np.clip(np.random.randn(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
             env_info_tr = env.step(actions)[brain_name]
-            actions_.append(actions)
-            states.append(env_info_tr.vector_observations)  # get next state (for each agent)
-        env.reset(train_mode=True)[brain_name]
-    states = np.array(states)
-    #states = np.expand_dims(states, axis=0)
-    print(f"states: {states}")
-    min1=states.min(axis=1)
-    print(f"min1: {min1}")
-    min2=min1.min(axis=0)
-    print(f"min2: {min2}")
-    max2=states.max(axis=1).max(axis=0)
-    # med=states.mean(axis=1).mean(axis=0)
+        self.states = env_info_tr.vector_observations
+        self.normalize_states()
+        return
+
+    def get_states_min_max_Values(self):
+        # perform some random steps to get a random starting point
+        _ = env.reset(train_mode=True)[brain_name]  # reset the environment
+        states = []
+        actions_ = []
+        for _ in range(admin.episodes_test):
+            for _ in range(400):
+                actions = np.clip(np.random.randn(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
+                # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
+                env_info_tr = env.step(actions)[brain_name]
+                actions_.append(actions)
+                states.append(env_info_tr.vector_observations)  # get next state (for each agent)
+            _ = env.reset(train_mode=True)[brain_name]
+        states = np.array(states)
+        # print(f"states: {states}")
+        min1 = states.min(axis=1)
+        # print(f"min1: {min1}")
+        min2 = min1.min(axis=0)
+        # print(f"min2: {min2}")
+        max2 = states.max(axis=1).max(axis=0)
+        # med=states.mean(axis=1).mean(axis=0)
+        print(f"stateMin: {min2}\n\nstateMax: {max2}")
+        return None
+
+    def normalize_states(self):
+        iInterpolationMinOrig = np.array(admin.lInterpolParam[0])
+        iInterpolationMaxOrig = np.array(admin.lInterpolParam[1])
+        iInterpolationMinNew = np.ones(admin.state_size) * -1
+        iInterpolationMaxNew = np.ones(admin.state_size)
+        fAnstieg = (iInterpolationMaxNew - iInterpolationMinNew) / (iInterpolationMaxOrig - iInterpolationMinOrig)
+        fOffset = (iInterpolationMaxOrig * iInterpolationMinNew - iInterpolationMinOrig * iInterpolationMaxNew) / (
+                iInterpolationMaxOrig - iInterpolationMinOrig)
+        if admin.lInterpolParam[2]:  # clip resulting normalized states if requested
+            self.normalized_states = np.clip(fAnstieg * env_utils.states + fOffset, -1, 1)
+        else:
+            self.normalized_states = fAnstieg * env_utils.states + fOffset
+        # print(f"aInterpolatedData: {self.normalized_states}")
+        return None
 
 
-    print(f"stateMin: {min2}\nstateMedian: \nstateMax: {max2}")
-    return None
+class MyAppLookupError(LookupError):
+    """raise this when there's a lookup error for my app"""
+    # source of this class:
+    # https://stackoverflow.com/questions/2052390/manually-raising-throwing-an-exception-in-python/24065533#24065533
 
-# # from udacity pong exercise pong_utils.py
-# # convert states to probability, passing through the policy
-# def states_to_prob(policy, states):
-#     # states = torch.stack(torch.tensor(states))
-#     states=torch.tensor(states)
-#     # states = torch.stack(list(states))
-#     policy_input = states.view(-1, *states.shape[-3:])
-#     # policy_input= policy_input.
-#     print(f"policy_input: {policy_input}")
-#     policy_input = torch.tensor(policy_input)
-#     policy_input = policy_input.float().to(device)
-#     policy_ = policy(policy_input)
-#     print(f"policy_={policy_}")
-#     print(f"states.shape={states.shape}\npolicy_.shape={policy_.shape}")
-#     policy_ = policy_.view(states.shape[:-3])
-#     print(f"policy_view={policy_}")
-#     return policy(policy_input).view(states.shape[:-3])
 
-# # from ShangtongZhang Examples:
-# # A2C
-# def a2c_feature(**kwargs):
-#     generate_tag(kwargs)
-#     kwargs.setdefault('log_level', 0)
-#     config = Config()
-#     config.merge(kwargs)
-#
-#     config.num_workers = 5
-#     config.task_fn = lambda: Task(config.game, num_envs=config.num_workers)
-#     config.eval_env = Task(config.game)
-#     config.optimizer_fn = lambda params: torch.optim.RMSprop(params, 0.001)
-#     config.network_fn = lambda: CategoricalActorCriticNet(
-#         config.state_dim, config.action_dim, FCBody(config.state_dim, gate=F.tanh))
-#     config.discount = 0.99
-#     config.use_gae = True
-#     config.gae_tau = 0.95
-#     config.entropy_weight = 0.01
-#     config.rollout_length = 5
-#     config.gradient_clip = 0.5
-#     run_steps(A2CAgent(config))
+class Administration:
+    """defines looped interactions of the Agent (use case and training)"""
 
-train()
-# get_min_max_state(env)
-env.close()
+    def __init__(self, config_data_interact):
+        self.load_indices = config_data_interact['load_indices']
+        self.save_indices = config_data_interact['save_indices']
+        self.path_load = config_data_interact['path_load']
+        self.path_save = config_data_interact['path_save']
+        self.load_scores_version = config_data_interact['load_scores_version']
+        self.save_weights = config_data_interact['save_weights']
+        self.save_plot = config_data_interact['save_plot']
+        self.show_plot = config_data_interact['show_plot']
+        self.episodes_train = config_data_interact['episodes_train']
+        self.episodes_test = config_data_interact['episodes_test']
+        self.target_reward = config_data_interact['target_reward']
+        self.consecutive_episodes_required = config_data_interact['consecutive_episodes_required']
+        self.network_type = config_data_interact['network_type']
+        self.num_of_parallel_networks = config_data_interact['num_of_parallel_networks']  # 50
+        self.keep_weights_n_best_min = config_data_interact['keep_weights_n_best_min']
+        self.keep_weights_n_best_mean = config_data_interact['keep_weights_n_best_mean']
+        self.keep_weights_n_best_max = config_data_interact['keep_weights_n_best_max']
+        self.keep_weights_n_best_min_small_change = config_data_interact['keep_weights_n_best_min_small_change']
+        self.keep_weights_n_best_mean_small_change = config_data_interact['keep_weights_n_best_mean_small_change']
+        self.keep_weights_n_best_max_small_change = config_data_interact['keep_weights_n_best_max_small_change']
+        self.keep_weights_n_best_min_big_change = config_data_interact['keep_weights_n_best_min_big_change']
+        self.keep_weights_n_best_mean_big_change = config_data_interact['keep_weights_n_best_mean_big_change']
+        self.keep_weights_n_best_max_big_change = config_data_interact['keep_weights_n_best_max_big_change']
+        self.keep_weights_n_worst_min_big_change = config_data_interact['keep_weights_n_worst_min_big_change']
+        self.keep_weights_n_worst_mean_big_change = config_data_interact['keep_weights_n_worst_mean_big_change']
+        self.keep_weights_n_worst_max_big_change = config_data_interact['keep_weights_n_worst_max_big_change']
+        self.noise_scale_best_small = config_data_interact['noise_scale_best_small']
+        self.noise_scale_best_big = config_data_interact['noise_scale_best_big']
+        self.noise_scale_worst = config_data_interact['noise_scale_worst']
+        self.sigma = config_data_interact['sigma']
+        # self.epsilon_start = config_data_interact['epsilon_start']
+        # self.epsilon_end = config_data_interact['epsilon_end']
+        # self.epsilon_decay = config_data_interact['epsilon_decay']
+        # self.epsilon_test = config_data_interact['epsilon_test']
+        # self.buffer_size = config_data_interact['buffer_size']
+        # self.batch_size = config_data_interact['batch_size']
+        # self.gamma = config_data_interact['gamma']
+        # self.tau = config_data_interact['tau']
+        # self.learning_rate = config_data_interact['learning_rate']
+        # self.update_target_every = config_data_interact['update_target_every']
+        self.lInterpolParam = config_data_interact['lInterpolParam']
+        self.number_of_agents = config_data_interact['number_of_agents']  # 20
+        self.agents_duplication_factor = config_data_interact['agents_duplication_factor']
+        self.number_of_random_actions = config_data_interact['number_of_random_actions']
+        self.max_steps_per_training_episode = config_data_interact['max_steps_per_training_episode']
+        self.num_of_same_act_repetition = config_data_interact['num_of_same_act_repetition']
+        self.env_train_mode = config_data_interact['env_train_mode']
+        self.environment_path = config_data_interact['environment_path']
+        if train is True:
+            self.rewards_all_episodes = np.empty(shape=(3, self.episodes_train))
+        else:
+            self.rewards_all_episodes = np.empty(shape=(3, self.episodes_test))
+        self.rewards_all_networks = np.empty(shape=(3, self.num_of_parallel_networks))
+        self.weightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
+        self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
+        self.state_size = 33
+        self.weights_dim = 612
+        # check correctness of keep_weights inputs
+        sum_of_keep_weights = self.keep_weights_n_best_min + self.keep_weights_n_best_mean + \
+                              self.keep_weights_n_best_max + self.keep_weights_n_best_min_small_change + \
+                              self.keep_weights_n_best_mean_small_change + self.keep_weights_n_best_max_small_change + \
+                              self.keep_weights_n_best_min_big_change + self.keep_weights_n_best_mean_big_change + \
+                              self.keep_weights_n_best_max_big_change + self.keep_weights_n_worst_min_big_change + \
+                              self.keep_weights_n_worst_mean_big_change + self.keep_weights_n_worst_max_big_change
+        if self.num_of_parallel_networks < sum_of_keep_weights:
+            raise MyAppLookupError(f"\nthe Number of parallel Networks ({self.num_of_parallel_networks}) is smaller than "
+                                   f"the Number of intended weights to keep ({sum_of_keep_weights})\n"
+                                   f"please change the <keep_weights...> or <num_of_parallel_networks> parameter "
+                                   f"in your config file ({args.config_file})")
+
+    def init_agent(self):
+        # examine the state space
+        env_info_observation = env.reset(train_mode=self.env_train_mode)[brain_name]
+        states_observation = env_info_observation.vector_observations
+        self.state_size = states_observation.shape[1]
+        action_size = brain.vector_action_space_size
+        # print(f" init_agent: s_size: {self.state_size}\n a_size: {action_size}")  # s_size: 33;  a_size: 4
+        # agent_ = NetworkFullyConnected(state_size=state_size, action_size=action_size).to(device)
+        # optimizer = optim.Adam(agent_.parameters(), lr=1e-4)        # policy.parameters()
+
+        if self.network_type == "NetworkFullyConnected":
+            agent_ = NetworkFullyConnected(state_size=self.state_size, action_size=action_size).to(device)
+        elif self.network_type == "NetworkOneHiddenLayer":
+            agent_ = NetworkOneHiddenLayer(s_size=self.state_size, a_size=action_size).to(device)
+        else:
+            raise MyAppLookupError(f"No valid network_type specified | given: \"{self.network_type}\" | expected: "
+                                   f"\"QNetwork\" or \"DoubleQNetwork\"")
+        return agent_
+
+    def update_weightslist(self):
+        """ pick and reuse weights that delivered high rewards
+        add some noise to the weights
+        refill rest with random weights"""
+        # <self.nextweightslist> was initialized at train()
+        # print(f"weights_pre: {self.weightslist}")
+        # idx: array with indexes that deliver rewards (rising rewards from start to end of list)
+        idx = np.array(self.rewards_all_networks.argsort(axis=1))
+        startidx = 0
+
+        # keep weights (amount: <self.keep_weights_n_best_min>) with best min_reward
+        # min_reward = self.rewards_all_networks[0]
+        # example:
+        # fill <nextweightslist> at position 0 and 1 (n=2) with weights that delivered the highest min_reward:
+        # n = 2 = <self.keep_weights_n_best_min> (keep the weights with 2 best min_rewards)
+        # weightslist_new[startidx:startidx+n, :] = weightslist[idx[:, -n:][0]]
+        # weightslist_new[0:2, :] = weightslist[idx[: ,-2][0]
+        # startidx=startidx+n
+        if self.keep_weights_n_best_min > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_min:][0]]
+        startidx = startidx + self.keep_weights_n_best_min
+
+        # keep weights with best mean_reward
+        # mean_reward = self.rewards_all_networks[1]
+        if self.keep_weights_n_best_mean > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_mean:][1]]
+        startidx = startidx + self.keep_weights_n_best_mean
+
+        # keep weights with best max_reward
+        # max_reward = self.rewards_all_networks[2]
+        if self.keep_weights_n_best_max > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_max:][2]]
+        startidx = startidx + self.keep_weights_n_best_max
+
+        # keep weights with best min_reward and add a small noise
+        if self.keep_weights_n_best_min_small_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min_small_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_min_small_change:][0]] \
+                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_min_small_change
+
+        # keep weights with best mean_reward and add a small noise
+        if self.keep_weights_n_best_mean_small_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean_small_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_mean_small_change:][1]] \
+                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_mean_small_change
+
+        # keep weights with best max_reward and add a small noise
+        if self.keep_weights_n_best_max_small_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max_small_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_max_small_change:][2]] \
+                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_max_small_change
+
+        # keep weights with best min_reward and add a lot of noise
+        if self.keep_weights_n_best_min_big_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min_big_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_min_big_change:][0]] \
+                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_min_big_change
+
+        # keep weights with best mean_reward and add a lot of noise
+        if self.keep_weights_n_best_mean_big_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean_big_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_mean_big_change:][1]] \
+                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_mean_big_change
+
+        # keep weights with best max_reward and add a lot of noise
+        if self.keep_weights_n_best_max_big_change > 0:
+            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max_big_change, :] = \
+                    self.weightslist[idx[:, -self.keep_weights_n_best_max_big_change:][2]] \
+                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_best_max_big_change
+
+        # keep weights with worst min_reward and add a lot of noise
+        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_min_big_change, :] = \
+                self.weightslist[idx[:, :self.keep_weights_n_worst_min_big_change][0]] \
+                + self.noise_scale_worst * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_worst_min_big_change
+
+        # keep weights with worst mean_reward and add a lot of noise
+        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_mean_big_change, :] = \
+                self.weightslist[idx[:, :self.keep_weights_n_worst_mean_big_change][1]] \
+                + self.noise_scale_worst * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_worst_mean_big_change
+
+        # keep weights with worst max_reward and add a lot of noise
+        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_max_big_change, :] = \
+                self.weightslist[idx[:, :self.keep_weights_n_worst_max_big_change][2]] \
+                + self.noise_scale_worst * np.random.rand(self.weights_dim)
+        startidx = startidx + self.keep_weights_n_worst_max_big_change
+
+        # fill the rest with random weights
+        self.nextweightslist[startidx:, :] = self.sigma * np.random.rand(self.weights_dim)
+        self.weightslist = self.nextweightslist.copy()
+        # print(f"weights_post: {self.weightslist}")
+        return None
+
+    def train(self):
+        self.weights_dim = agent.get_weights_dim()
+        self.weightslist = self.sigma * np.random.randn(self.num_of_parallel_networks, agent.get_weights_dim())
+        # self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
+        self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
+        # print(
+        #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
+        saved = False
+        time_new = time_start = datetime.datetime.now()
+        for i in range(self.episodes_train):
+            for j in range(self.num_of_parallel_networks):
+                agent.set_weights(self.weightslist[j])
+                env_utils.get_random_start_state()
+                min_reward, mean_reward, max_reward = admin.get_rewards(trainmode=True)
+                self.rewards_all_networks[0, j] = min_reward
+                self.rewards_all_networks[1, j] = mean_reward
+                self.rewards_all_networks[2, j] = max_reward
+            # print(f"episode={i}\nrew_all_ep_0={self.rewards_all_networks.max(axis=1)[0]}\nrew_all_ep_1={self.rewards_all_networks.max(axis=1)[1]}\nrew_all_ep_2={self.rewards_all_networks.max(axis=1)[2]}")
+            for k in range(3):
+                self.rewards_all_episodes[k, i] = self.rewards_all_networks.max(axis=1)[k]
+            if i >= self.consecutive_episodes_required:
+                '''next 3 only for testing'''
+                # rewards_deque = self.rewards_all_episodes[:, i - 100:i + 1]
+                # rewards_deque_mean = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)
+                # rewards_deque_max = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1).max()
+                # print(f"ci check_indexing in train(): rewards_deque_shape={rewards_deque.shape()} | should be (3,100)")
+                # print(f"ci rewards_deque_mean={rewards_deque_mean} | should be of shape (3))")
+                # print(f"ci rewards_deque_max={rewards_deque_max} | should be one value")
+
+                # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1).max() >= self.target_reward: # if either min or mean or max of Results reaches the goal value
+                # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1)[0] >= self.target_reward:    # if min of Results reaches the goal value
+                if self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[
+                    1] >= self.target_reward:  # if mean of Results reaches the goal value
+                    print(f"target reward reached in episode: {i - self.consecutive_episodes_required}: "
+                          f"mean_of_means_of_rewards={self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1]}")
+                    # last_max_reward_positions = np.argmax(self.rewards_all_networks,
+                    #                                       axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
+                    # print(f"ci last_max_reward_positions= {last_max_reward_positions}")
+                    # print(
+                    #     f"ci corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
+                    # max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
+                    # max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
+                    # max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
+                    if self.save_weights and not saved:
+                        np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
+                        np.save(self.path_save + 'scores_s' + self.save_indices, self.rewards_all_networks)
+                        saved = True
+                    break
+            # print(f"rewards_all_nw: {self.rewards_all_networks}")
+            # print(f"\n\nrewards_all_ep: {self.rewards_all_episodes}")
+            self.update_weightslist()
+            if (i + 1) % 25 == 0:
+                time_old = time_new
+                time_new = datetime.datetime.now()
+                if i > 99:
+                    print('\rMin_Score {}\tAverage_Score: {:.2f}\tMax_Score {}\tEpisode {}/{}\tTime since start: {}'
+                          '\tdeltaTime: {}'.format(self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[0],
+                                                   self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1],
+                                                   self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[2],
+                                                   i+1, self.episodes_train, str(time_new-time_start).split('.')[0],
+                                                   str(time_new-time_old).split('.')[0]), end="")
+                else:
+                    print('\rMin_Score - \tAverage_Score: - \tMax_Score - \tEpisode {}/{}\tTime since start: {}'
+                          '\tdeltaTime: {}'.format(i + 1, self.episodes_train, str(time_new - time_start).split('.')[0],
+                                                   str(time_new - time_old).split('.')[0]), end="")
+        admin.plot_results()
+        if self.save_weights:
+            # last_max_reward_positions = np.argmax(self.rewards_all_networks,
+            #                                       axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
+            # print(f"ci Ende: last_max_reward_positions= {last_max_reward_positions}")
+            # # doesn't work yet: print(f"ci Ende: corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
+            # # max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
+            # # max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
+            # # max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
+            np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
+            np.save(self.path_save + 'scores_g' + self.save_indices, self.rewards_all_networks)
+        return None
+
+    def test(self):
+        self.weights_dim = agent.get_weights_dim()
+        self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
+        self.rewards_all_networks = np.load(self.path_load + 'scores_' + self.load_indices)
+        # self.update_weightslist()
+        agent.set_weights(self.weightslist[self.load_scores_version])
+        # initialize
+        # env = environment
+        # agent = Agent()
+        # choose mean_weights
+        rewards_test = []
+        rewards_deque = deque(maxlen=self.consecutive_episodes_required)
+        means_of_means_of_sum_of_rewards = []
+        for i in range(self.episodes_test):
+            env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
+            env_utils.normalize_states()
+            reward_min, reward_mean, reward_max = agent.get_rewards(env, trainmode=False)
+            rewards_test.append(reward)
+            if i >= self.consecutive_episodes_required:
+                means_of_means_of_sum_of_rewards.append(np.mean(rewards_deque))
+        agent.plot_results(rewards_test)
+        return None
+
+    # def test(self):
+    #     """"""
+    #     '''
+    #     this Function may contain Code provided by Udacity Inc.
+    #     '''
+    #     agent.qnetwork_local.load_state_dict(torch.load(self.path_load + "checkpoint_" + self.load_indices + ".pth"))
+    #     time_new = time_start = datetime.datetime.now()
+    #     score = 0
+    #     scores = []
+    #     scores_window = deque(maxlen=100)   # last 100 scores
+    #
+    #     for i_episode in range(self.episodes_test):
+    #         env_info = env.reset(train_mode=True)[brain_name]
+    #         state, _, _ = get_infos(env_info)
+    #         while True:
+    #             action = agent.act(state, self.epsilon_test)
+    #             env_info = env.step(action)[brain_name]
+    #             next_state, reward, done = get_infos(env_info)
+    #             score += reward
+    #             state = next_state
+    #             if done:
+    #                 env.reset()
+    #                 break
+    #         scores_window.append(score)
+    #         scores.append(score)
+    #         if (i_episode + 1) % 25 == 0:
+    #             time_old = time_new
+    #             time_new = datetime.datetime.now()
+    #             print('\rMin_Score {}\tAverage_Score: {:.2f}\tMax_Score {}\tEpisode {}/{}\tTime since start: {}'
+    #                   '\tdeltaTime: {}'.format(np.min(scores_window), np.mean(scores_window), np.max(scores_window),
+    #                                            i_episode, self.episodes_test-1, str(time_new-time_start).split('.')[0],
+    #                                            str(time_new-time_old).split('.')[0]), end="")
+    #         score = 0
+    #     env.close()
+    #     print("\n")
+    #     plot_scores(scores)
+    #     return None
+
+    def get_rewards(self, trainmode=True):
+        '''test_networks()'''
+        # get trajectories and discount them --> new Rewards --> not necessary
+        # --> 20 Robots per weight for n episodes --> get weights (raw)
+        rewards_sum = np.zeros(self.number_of_agents)
+        actions_list = []
+        # if trainmode:
+        #     for _ in range(self.number_of_random_actions):
+        #         actions = np.clip(np.random.randn(self.number_of_agents, 4) / 4, a_min=-1, a_max=1)
+        #         env_info_tr = env.step(actions)[brain_name]
+        #     env_utils.states = env_info_tr.vector_observations  # get next state (for each agent)
+        # else:
+        #     env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
+        # env_utils.normalize_states()
+        for _ in range(self.max_steps_per_training_episode):
+            actions = agent(
+                torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
+            actions_list.append(actions)
+            '''use same action multiple times'''
+            for i_same_act in range(self.num_of_same_act_repetition):
+                env_info = env.step(actions)[brain_name]
+                rewards_sum += np.array(env_info.rewards)
+                # print(f"env_info.rewards: {env_info.rewards}")
+                if env_info.local_done:  # if is_done .... from Udacity
+                    break
+            env_utils.states = env_info.vector_observations
+            env_utils.normalize_states()
+        # print(f"actions= {actions_list}")
+        # print(f"actions_min={min(actions_list())}")
+        # print(f"actions_max={max(actions_list())}")
+        return rewards_sum.min(), rewards_sum.mean(), rewards_sum.max()
+
+    def plot_results(self):
+        '''
+        this Function may contain Code provided by Udacity Inc.
+        '''
+        # create figure
+        # fig = plt.figure()
+        # if self.rewards_all_episodes.size()[0] == 3:
+
+        ''' Training:
+        max of min_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        max of mean_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        max of max_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode 
+            Testing:
+        same plots, but always from the same Network
+        '''
+        # print(f"plot_results() rewards_all_episodes={self.rewards_all_episodes}")
+        # print(f"plot_results() rewards_all_episodes[0]={self.rewards_all_episodes[0]}")
+
+        x_plot = np.arange(len(self.rewards_all_episodes[0]))
+        numOfPlots = 3
+
+        for plot_number in range(3):
+            plt.subplot(numOfPlots, 1, plot_number + 1)
+            plt.plot(x_plot, self.rewards_all_episodes[plot_number], '.-')
+            # plt.title('A tale of 2 subplots')
+            # plt.ylabel('Damped oscillation')
+
+
+        # elif self.rewards_all_episodes.size()[0] == 1:
+        #     ''' Test:
+        #     tested Network: score: max of the 20 agents (of score in one Episode) over Episodes
+        #     tested Network: score: mean of the 20 agents (of score in one Episode) over Episodes
+        #     tested Network: score: min of the 20 agents (of score in one Episode) over Episodes '''
+        #     x_plot = np.arange(len(self.rewards_all_episodes[0]))
+        #     plt.subplot(1, 1, 1)
+        #     plt.plot(x_plot, self.rewards_all_episodes[0], '.-')
+        #
+        #     # fig.add_subplot(212)
+        #     # plt.plot(np.arange(len(epsilones)), epsilones)
+        #     # plt.ylabel('epsilon')
+        #     # plt.xlabel('Episode #')
+        #     # fig.add_subplot(211)
+        # else:
+        #     print("plot_results(): rewards of wrong Dimension")
+
+        # ''' Training:
+        # max of min_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        # max of mean_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        # max of max_reward of all Network over Episodes (min_reward: min score of the 20 agents in one Episode
+        #     Testing:
+        # same plots, but always from the same Network
+        # '''
+        # x_plot = np.arange(len(self.rewards_all_episodes[0]))
+        # print(f"doesent count up:  {self.rewards_all_episodes.size()[0]}")
+        # for plot_number in range(self.rewards_all_episodes.size()[0]):
+        #     plt.subplot(self.rewards_all_episodes.size()[0], 1, plot_number + 1)
+        #     plt.plot(x_plot, self.rewards_all_episodes[plot_number], '.-')
+        #     # plt.title('A tale of 2 subplots')
+        #     # plt.ylabel('Damped oscillation')
+        if self.save_plot:
+            # save the plot
+            plt.savefig(self.path_save + "graph_" + self.save_indices + ".png")
+        if self.show_plot:
+            # plot the scores
+            plt.show()
+        return None
+
+
+if __name__ == "__main__":
+    # Idea of parser: https://docs.python.org/2/howto/argparse.html
+    parser = argparse.ArgumentParser(description='Interacting Agent')
+    parser.add_argument('--train', type=str, default='True', help='True: train the agent; '
+                                                                  'default=False: test the agent')
+    parser.add_argument('--config_file', type=str, default='config.json',
+                        help='Name of config_file in root of Continuous_Control')
+    parser.add_argument('--getminmax', type=str, default='False',
+                        help='True: get min and max Values of state; default=False: do nothing')
+    args = parser.parse_args()
+
+    # convert argparse arguments to bool since argparse doesn't treat booleans as expected:
+    if args.train == 'True' or args.train == 'true' or args.train == 'TRUE':
+        train = True
+    elif args.train == 'False' or args.train == 'false' or args.train == 'FALSE':
+        train = False
+    else:
+        raise MyAppLookupError('--train can only be True or False | default: False')
+    if args.getminmax == 'True' or args.getminmax == 'true' or args.getminmax == 'TRUE':
+        getminmax = True
+    elif args.getminmax == 'False' or args.getminmax == 'false' or args.getminmax == 'FALSE':
+        getminmax = False
+    else:
+        raise MyAppLookupError('--getminmax can only be True or False | default: False')
+
+    # load config_file.json
+    # Idea: https://commentjson.readthedocs.io/en/latest/
+    with open(args.config_file, 'r') as f:
+        config_data = commentjson.load(f)
+    # initialize configuration
+    admin = Administration(config_data)
+
+    '''
+    from here on this function may contain some Code provided by Udacity Inc.
+    '''
+    # check device
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    # initialize Environment
+    env = UnityEnvironment(file_name=admin.environment_path)
+
+    # get the default brain
+    brain_name = env.brain_names[0]
+    brain = env.brains[brain_name]
+
+    # initialize Agent
+    agent = admin.init_agent()
+
+    # initialize Environment Utilities
+    env_utils = EnvUtils()
+
+    # get min and max Values of state if selected
+    if getminmax is True:
+        env_utils.get_states_min_max_Values()
+
+    # train or test the Agent
+    if train is True:
+        print(f"\nTrain the Network using config_file <{args.config_file}> on device <{device}> "
+              f"with weights-save-index <{admin.save_indices}>")
+        admin.train()
+    else:
+        print(f"\nTest the Network with fixed weights from <checkpoint_{admin.load_indices}.pth> "
+              f"using config_file <{args.config_file}> on device <{device}>")
+        admin.test()
+    env.close()
