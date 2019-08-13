@@ -20,7 +20,11 @@
 "consecutive_episodes_required": 100, # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
 
-"network_type": "NetworkOneHiddenLayer",     # expected: NetworkFullyConnected, NetworkOneHiddenLayer
+"network_type": "NetworkOneHiddenLayer",     # expected: DDPG, NetworkFullyConnected, NetworkOneHiddenLayer
+"actor_fc_units": 44,    # 256
+"critic_fcs1_units": 44,  # 256
+"critic_fcs2_units": 44,  # 256
+"critic_fcs3_units": 11,     # 128
 #"num_of_parallel_networks": 5,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
 #"keep_weights_n_best_min": 1,               # 4 no change
 #"keep_weights_n_best_mean": 2,
@@ -55,12 +59,15 @@
 # "epsilon_end": 0.01,
 # "epsilon_decay": 0.995,
 # "epsilon_test": 0.01,     # epsilon during test mode
-# "buffer_size": 100000,    # replay buffer size
-# "batch_size": 64,         # minibatch size
-# "gamma": 0.995,           # discount factor
-# "tau": 1e-3,              # for soft update of target parameters
-# "learning_rate": 5e-4,    # learning rate
+"buffer_size_admin": 1000000,    # replay buffer size
+"batch_size_admin": 128,         # minibatch size
+"gamma": 0.99,           # discount factor
+"tau": 1e-3,              # for soft update of target parameters
+"learning_rate_actor": 1e-4,    # learning rate of the actor
+"learning_rate_critic": 3e-4,   # learning rate of the critic
+"weight_decay": 0.0001,     # L2 weight decay
 # "update_target_every": 4, # how often to update the network
+"random_seed": 10,             # random_seed
 "lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -14, -3, -4, -14, -11, -15, -11, -11, -10, -1, -1, -1, -1, -14,
                    -14, -11, -20, -19, -19, -8, -1.1, -8, -0.1, 0.9, -0.1, -1],
                    [4.1, 4.1, 4.1, 1, 1, 1, 1, 14, 3, 4, 14, 11, 15, 11, 11, 10, 1, 1, 1, 1, 14, 14, 11, 20, 19, 19,
