@@ -126,18 +126,37 @@ class MyAppLookupError(LookupError):
 class EnvUtils:
     def __init__(self):
         self.states = np.empty(shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
-        self.normalized_states = np.empty(
+        self.next_states = np.empty(shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
+        self.states_normalized = np.empty(
+            shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
+        self.next_states_normalized = np.empty(
             shape=(admin.num_of_parallel_networks, admin.number_of_agents, admin.state_size))
 
-    def set_states(self, states):
+    def set_states(self, states, next_states):
         self.states = states
+        self.next_states = next_states
         self.normalize_states()
         return None
 
     def get_random_start_state(self):
+        # actions_list = []   # only for testing
+        # state_list = []     # only for testing
         for _ in range(admin.number_of_random_actions):
             actions = np.clip(np.random.randn(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
+            # print(f"random_actions={actions}")
             env_info_tr = env.step(actions)[brain_name]
+            # self.states = env_info_tr.vector_observations        # for test
+            # self.normalize_states()                             #for test
+            # state_list.append(self.states_normalized)                       # for test
+            # actions_list.append(actions)                                    # for test
+        # print(f"actions={np.array(actions_list)}")
+        # print(f"actions_min={actions_list.min()}")
+        # print(f"actions_mean={actions_list.mean()}")
+        # print(f"actions_max={actions_list.max()}")
+        # print(f"state_list1= {state_list}")
+        # print(f"state1={np.array(state_list).min()}")
+        # print(f"state_mean1={np.array(state_list).mean()}")
+        # print(f"state_max1={np.array(state_list).max()}")
         self.states = env_info_tr.vector_observations
         self.normalize_states()
         return
@@ -149,7 +168,7 @@ class EnvUtils:
         actions_ = []
         for _ in range(admin.episodes_test):
             for _ in range(400):
-                actions = np.clip(np.random.randn(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
+                actions = np.clip(np.random.rand(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
                 # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
                 env_info_tr = env.step(actions)[brain_name]
                 actions_.append(actions)
@@ -175,19 +194,21 @@ class EnvUtils:
         fOffset = (iInterpolationMaxOrig * iInterpolationMinNew - iInterpolationMinOrig * iInterpolationMaxNew) / (
                 iInterpolationMaxOrig - iInterpolationMinOrig)
         if admin.lInterpolParam[2]:  # clip resulting normalized states if requested
-            self.normalized_states = np.clip(fAnstieg * env_utils.states + fOffset, -1, 1)
+            self.states_normalized = np.clip(fAnstieg * env_utils.states + fOffset, 0, 1)
+            self.next_states_normalized = np.clip(fAnstieg * env_utils.next_states + fOffset, 0, 1)
         else:
-            self.normalized_states = fAnstieg * env_utils.states + fOffset
+            self.states_normalized = fAnstieg * env_utils.states + fOffset
+            self.next_states_normalized = fAnstieg * env_utils.next_states + fOffset
         # print(f"aInterpolatedData: {self.normalized_states}")
         return None
 
 
-class Actor(nn.Module):
+class Actor1(nn.Module):
     """Actor (Policy) Model."""
     '''
     this class contains some changes but was mainly provided by Udacity Inc.
     '''
-    def __init__(self, state_size, action_size, seed, fc_units):
+    def __init__(self, state_size, action_size, seed, fcs1_units, fcs2_units):
         """Initialize parameters and build model.
         Params
         ======
@@ -198,23 +219,29 @@ class Actor(nn.Module):
             fc2_units (int): Number of nodes in second hidden layer
         """
         # fc_units = 256
-        super(Actor, self).__init__()
+        super(Actor1, self).__init__()
         self.seed = torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, fc_units)
-        self.fc2 = nn.Linear(fc_units, action_size)
+        self.fc1 = nn.Linear(state_size, fcs1_units)
+        self.fc2 = nn.Linear(fcs1_units, fcs2_units)
+        self.fc3 = nn.Linear(fcs2_units, action_size)
         self.reset_parameters()
 
     def reset_parameters(self):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
-        self.fc2.weight.data.uniform_(-3e-3, 3e-3)
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state):
         """Build an actor (policy) network that maps states -> actions."""
         x = F.relu(self.fc1(state))
-        return F.tanh(self.fc2(x))
+        x = F.relu(self.fc2(x))
+        x = torch.tanh(self.fc3(x))
+        x = 2 * x - 1
+        # x = F.relu(self.fc3(x))
+        return x
 
 
-class Critic(nn.Module):
+class Critic1(nn.Module):
     """Critic (Value) Model."""
     '''
     this class contains some changes but was mainly provided by Udacity Inc.
@@ -230,11 +257,13 @@ class Critic(nn.Module):
             fc2_units (int): Number of nodes in the second hidden layer
         """
         # fcs1_units = 256, fc2_units = 256, fc3_units = 128
-        super(Critic, self).__init__()
+        super(Critic1, self).__init__()
         self.seed = torch.manual_seed(seed)
         self.fcs1 = nn.Linear(state_size, fcs1_units)
-        self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, fc3_units)
+        self.fc2 = nn.Linear(fcs1_units, fc2_units)
+        self.fc3 = nn.Linear(fc2_units+action_size, fc3_units)
+        # self.fc4 = nn.Linear(fc3_units, fc4_units)
+        # self.fc5 = nn.Linear(fc4_units, 1)
         self.fc4 = nn.Linear(fc3_units, 1)
         self.reset_parameters()
 
@@ -242,23 +271,115 @@ class Critic(nn.Module):
         self.fcs1.weight.data.uniform_(*hidden_init(self.fcs1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
+        # self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
+        # self.fc5.weight.data.uniform_(-3e-3, 3e-3)
         self.fc4.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         xs = F.leaky_relu(self.fcs1(state))
+        xs = F.leaky_relu(self.fc2(xs))
+        # xs = 2 * xs - 1
+        x = torch.cat((xs, action), dim=1)
+        x = F.leaky_relu(self.fc3(x))
+        # x = F.leaky_relu(self.fc4(x))
+        # # x = torch.tanh(self.fc5(x))
+        # x = self.fc5(x)
+        x = self.fc4(x)
+        return x
+
+
+class Actor2(nn.Module):
+    """Actor (Policy) Model."""
+    '''
+    this class contains some changes but was mainly provided by Udacity Inc.
+    '''
+    def __init__(self, state_size, action_size, seed, fcs1_units, fcs2_units):
+        """Initialize parameters and build model.
+        Params
+        ======
+            state_size (int): Dimension of each state
+            action_size (int): Dimension of each action
+            seed (int): Random seed
+            fc1_units (int): Number of nodes in first hidden layer
+            fc2_units (int): Number of nodes in second hidden layer
+        """
+        # fc_units = 256
+        super(Actor2, self).__init__()
+        self.seed = torch.manual_seed(seed)
+        self.fc1 = nn.Linear(state_size, fcs1_units)
+        self.fc2 = nn.Linear(fcs1_units, fcs2_units)
+        self.fc3 = nn.Linear(fcs2_units, action_size)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
+
+    def forward(self, state):
+        """Build an actor (policy) network that maps states -> actions."""
+        x = F.relu(self.fc1(state))
+        x = F.relu(self.fc2(x))
+        x = torch.tanh(self.fc3(x))
+        x = 2 * x - 1
+        # x = F.relu(self.fc3(x))
+        return x
+
+
+class Critic2(nn.Module):
+    """Critic (Value) Model."""
+    '''
+    this class contains some changes but was mainly provided by Udacity Inc.
+    '''
+    def __init__(self, state_size, action_size, seed, fcs1_units, fc2_units):
+        """Initialize parameters and build model.
+        Params
+        ======
+            state_size (int): Dimension of each state
+            action_size (int): Dimension of each action
+            seed (int): Random seed
+            fcs1_units (int): Number of nodes in the first hidden layer
+            fc2_units (int): Number of nodes in the second hidden layer
+        """
+        # fcs1_units = 256, fc2_units = 256, fc3_units = 128
+        super(Critic2, self).__init__()
+        self.seed = torch.manual_seed(seed)
+        self.fcs1 = nn.Linear(state_size, fcs1_units)
+        # self.fc2 = nn.Linear(fcs1_units, fc2_units)
+        self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
+        # self.fc4 = nn.Linear(fc3_units, fc4_units)
+        # self.fc5 = nn.Linear(fc4_units, 1)
+        self.fc3 = nn.Linear(fc2_units, 1)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.fcs1.weight.data.uniform_(*hidden_init(self.fcs1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
+        # self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
+        # self.fc5.weight.data.uniform_(-3e-3, 3e-3)
+        # self.fc4.weight.data.uniform_(-3e-3, 3e-3)
+
+    def forward(self, state, action):
+        """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
+        xs = F.leaky_relu(self.fcs1(state))
+        # xs = F.leaky_relu(self.fc2(xs))
+        # xs = 2 * xs - 1
         x = torch.cat((xs, action), dim=1)
         x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        return self.fc4(x)
-
+        # x = F.leaky_relu(self.fc4(x))
+        # # x = torch.tanh(self.fc5(x))
+        # x = self.fc5(x)
+        x = self.fc3(x)
+        return x
 
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
     '''
     this class contains some changes but was mainly provided by Udacity Inc.
     '''
-    def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
+    def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.1):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.theta = theta
@@ -273,8 +394,12 @@ class OUNoise:
     def sample(self):
         """Update internal state and return it as a noise sample."""
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
-        self.state = x + dx
+        # dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random()*2 -1 for i in range(len(x))])
+        # dx = self.theta * (self.mu - x) * self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
+        dx = self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
+        # print(f"noise x: {self.state}\tnoise mu-x {self.mu - x}\tdx: {dx}")
+        # self.state = x +dx
+        self.state = dx
         return self.state
 
 
@@ -296,10 +421,19 @@ class ReplayBuffer:
         self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
         self.seed = random.seed(seed)
 
-    def add(self, state, action, reward, next_state, done):
+    def add(self, actions, environment_info):
         """Add a new experience to memory."""
-        e = self.experience(state, action, reward, next_state, done)
-        self.memory.append(e)
+        # Save experience / reward
+        for agent_count in range(admin.number_of_agents):
+            state = env_utils.states_normalized[agent_count]
+            action = actions[agent_count]
+            reward = environment_info.rewards[agent_count]
+            next_state = env_utils.next_states_normalized[agent_count]
+            is_done = environment_info.local_done[agent_count]
+            # self.memory.add(state, action, reward, next_state, is_done)
+            e = self.experience(state, action, reward, next_state, is_done)
+            self.memory.append(e)
+        return None
 
     def sample(self):
         """Randomly sample a batch of experiences from memory."""
@@ -312,8 +446,7 @@ class ReplayBuffer:
             device)
         dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(
             device)
-
-        return (states, actions, rewards, next_states, dones)
+        return states, actions, rewards, next_states, dones
 
     def __len__(self):
         """Return the current size of internal memory."""
@@ -337,10 +470,13 @@ class Administration:
         self.target_reward = config_data_interact['target_reward']
         self.consecutive_episodes_required = config_data_interact['consecutive_episodes_required']
         self.network_type = config_data_interact['network_type']
-        self.actor_fc_units = config_data_interact['actor_fc_units']
+        self.actor_fcs1_units = config_data_interact['actor_fcs1_units']
+        self.actor_fcs2_units = config_data_interact['actor_fcs2_units']
+        # self.actor_fcs_units = config_data_interact['actor_fc_units']
         self.critic_fcs1_units = config_data_interact['critic_fcs1_units']
         self.critic_fcs2_units = config_data_interact['critic_fcs2_units']
         self.critic_fcs3_units = config_data_interact['critic_fcs3_units']
+        # self.critic_fcs4_units = config_data_interact['critic_fcs4_units']
         self.num_of_parallel_networks = config_data_interact['num_of_parallel_networks']  # 50
         self.keep_weights_n_best_min = config_data_interact['keep_weights_n_best_min']
         self.keep_weights_n_best_mean = config_data_interact['keep_weights_n_best_mean']
@@ -358,6 +494,9 @@ class Administration:
         self.noise_scale_best_big = config_data_interact['noise_scale_best_big']
         self.noise_scale_worst = config_data_interact['noise_scale_worst']
         self.sigma = config_data_interact['sigma']
+        self.noise_theta = config_data_interact['noise_theta']
+        self.noise_sigma = config_data_interact['noise_sigma']
+        self.random_seed = config_data_interact['random_seed']
         # self.epsilon_start = config_data_interact['epsilon_start']
         # self.epsilon_end = config_data_interact['epsilon_end']
         # self.epsilon_decay = config_data_interact['epsilon_decay']
@@ -369,7 +508,7 @@ class Administration:
         self.learning_rate_actor = config_data_interact['learning_rate_actor']
         self.learning_rate_critic = config_data_interact['learning_rate_critic']
         self.weight_decay = config_data_interact['weight_decay']
-        self.random_seed = config_data_interact['random_seed']
+        self.learn_every = config_data_interact['learn_every']
         # self.update_target_every = config_data_interact['update_target_every']
         self.lInterpolParam = config_data_interact['lInterpolParam']
         self.number_of_agents = config_data_interact['number_of_agents']  # 20
@@ -380,9 +519,9 @@ class Administration:
         self.env_train_mode = config_data_interact['env_train_mode']
         self.environment_path = config_data_interact['environment_path']
         if train is True:
-            self.rewards_all_episodes = np.empty(shape=(3, self.episodes_train))
+            self.scores_all_episodes_and_NW = np.empty(shape=(self.num_of_parallel_networks, 3, self.episodes_train))
         else:
-            self.rewards_all_episodes = np.empty(shape=(3, self.episodes_test))
+            self.scores_all_episodes_and_NW = np.empty(shape=(self.num_of_parallel_networks, 3, self.episodes_test))
         self.rewards_all_networks = np.empty(shape=(3, self.num_of_parallel_networks))
         self.weightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
         self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
@@ -405,19 +544,43 @@ class Administration:
         '''
         up from here this Function may contain Code provided by Udacity Inc.
         '''
-        self.actor_local = Actor(self.state_size, self.action_size, self.random_seed,
-                                 self.actor_fc_units).to(device)
-        self.actor_target = Actor(self.state_size, self.action_size, self.random_seed,
-                                  self.actor_fc_units).to(device)
-        self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
 
-        # Critic Network (w/ Target Network)
-        self.critic_local = Critic(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                   self.critic_fcs2_units, self.critic_fcs3_units).to(device)
-        self.critic_target = Critic(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                    self.critic_fcs2_units, self.critic_fcs3_units).to(device)
-        self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
-                                           weight_decay=self.weight_decay)
+        if self.network_type == "DDPG_0":
+            self.actor_local = Actor0(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor0(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+            self.critic_local = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                       self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
+            self.critic_target = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                        self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
+        elif self.network_type == "DDPG_1":
+            self.actor_local = Actor1(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor1(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+            self.critic_local = Critic1(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                       self.critic_fcs2_units, self.critic_fcs3_units).to(device)
+            self.critic_target = Critic1(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                        self.critic_fcs2_units, self.critic_fcs3_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
+        elif self.network_type == "DDPG_2":
+            self.actor_local = Actor2(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor2(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+            self.critic_local = Critic2(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                       self.critic_fcs2_units).to(device)
+            self.critic_target = Critic2(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                        self.critic_fcs2_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
 
     def update_weightslist(self):
         """ pick and reuse weights that delivered high rewards
@@ -600,6 +763,87 @@ class Administration:
             np.save(self.path_save + 'scores_g' + self.save_indices, self.rewards_all_networks)
         return None
 
+    def train_ddpg_old(self):
+        '''
+        this function contains some changes but was mainly provided by Udacity Inc.
+        '''
+        scores_deque = deque(maxlen=100)
+        scores = []
+        max_score = -np.Inf
+        for i_episode in range(1, self.episodes_train + 1):
+            state = env.reset()
+            self.reset()
+            score = 0
+            for t in range(self.max_steps_per_training_episode):
+                action = self.act(state)
+                next_state, reward, done, _ = env.step(action)
+                self.step(state, action, reward, next_state, done)
+                state = next_state
+                score += reward
+                if done:
+                    break
+            scores_deque.append(score)
+            scores.append(score)
+            print('\rEpisode {}\tAverage Score: {:.2f}\tScore: {:.2f}'.format(i_episode, np.mean(scores_deque), score),
+                  end="")
+            if i_episode % 100 == 0:
+                torch.save(self.actor_local.state_dict(), 'checkpoint_actor.pth')
+                torch.save(self.critic_local.state_dict(), 'checkpoint_critic.pth')
+                print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
+        return scores
+
+    def train_ddpg(self):
+        # self.weights_dim = agent.get_weights_dim()
+        # self.weightslist = self.sigma * np.random.randn(self.num_of_parallel_networks, agent.get_weights_dim())
+        # # self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
+        # self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
+        # print(
+        #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
+        saved = False
+        time_new = time_start = datetime.datetime.now()
+        for i in range(self.episodes_train):
+            for j in range(self.num_of_parallel_networks):
+                # agent.set_weights(self.weightslist[j])
+                env_utils.get_random_start_state()
+                min_reward, mean_reward, max_reward = admin.get_rewards_ddpg(trainmode=True)
+                self.scores_all_episodes_and_NW[j, 0, i] = min_reward
+                self.scores_all_episodes_and_NW[j, 1, i] = mean_reward
+                self.scores_all_episodes_and_NW[j, 2, i] = max_reward
+            if i >= self.consecutive_episodes_required:
+                # rewards_deque_episodes = self.rewards_all_episodes[:, i - 100:i + 1]
+                for m in range(self.num_of_parallel_networks):
+                    # if mean of Results reaches the goal value
+                    # print(f"hello Value: {self.scores_all_episodes_and_NW[m, :, i - 100:i + 1].mean(axis=1)[1]}")
+                    if self.scores_all_episodes_and_NW[m, :, i - 100:i + 1].mean(axis=1)[1] >= self.target_reward:
+                        print(f"target reward reached by Network No. {m} in episode: "
+                              f"{i - self.consecutive_episodes_required}: mean_of_means_of_rewards="
+                              f"{self.scores_all_episodes_and_NW[m][:, i - 100:i + 1].mean(axis=1)[1]}")
+                        if self.save_weights and not saved:
+                            np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
+                            saved = True
+                        break
+            self.update_weightslist()
+            if (i + 1) % 25 == 0:
+                time_old = time_new
+                time_new = datetime.datetime.now()
+                if i > 99:
+                    print('\rBest of: Min_Score {}\tAverage_Score: {:.2f}\tMax_Score {}\tEpisode {}/{}\t'
+                          'Time since start: {}\tdeltaTime: '
+                          '{}'.format(self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[0],
+                                      self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[1],
+                                      self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[2],
+                                      i+1, self.episodes_train, str(time_new-time_start).split('.')[0],
+                                      str(time_new-time_old).split('.')[0]), end="")
+                else:
+                    print('\rBest of Min_Score - \tAverage_Score: - \tMax_Score - \tEpisode {}/{}\tTime since start: {}'
+                          '\tdeltaTime: {}'.format(i + 1, self.episodes_train, str(time_new - time_start).split('.')[0],
+                                                   str(time_new - time_old).split('.')[0]), end="")
+        if self.save_weights:
+
+            np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
+        admin.plot_results()
+        return None
+
     def test(self):
         self.weights_dim = agent.get_weights_dim()
         self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
@@ -712,6 +956,57 @@ class Administration:
         # print(f"actions_max={max(actions_list())}")
         return rewards_sum.min(), rewards_sum.mean(), rewards_sum.max()
 
+    def get_rewards_ddpg(self, trainmode=True):
+        '''test_networks()'''
+        # get trajectories and discount them --> new Rewards --> not necessary
+        # --> 20 Robots per weight for n episodes --> get weights (raw)
+        score_one_episode = np.zeros(self.number_of_agents)
+        actions_list = []   #   only to check behavior
+        # state_list = []     # only for testing
+        # if trainmode:
+        #     for _ in range(self.number_of_random_actions):
+        #         actions = np.clip(np.random.randn(self.number_of_agents, 4) / 4, a_min=-1, a_max=1)
+        #         env_info_tr = env.step(actions)[brain_name]
+        #     env_utils.states = env_info_tr.vector_observations  # get next state (for each agent)
+        # else:
+        #     env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
+        # env_utils.normalize_states()
+        for step in range(self.max_steps_per_training_episode):
+            actions = self.act()
+            # actions = agent(
+            #     torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
+            actions_list.append(actions)        # only to test actionspace
+            '''use same action multiple times'''
+            for i_same_act in range(self.num_of_same_act_repetition):
+                env_info = env.step(actions)[brain_name]
+                score_one_episode += np.array(env_info.rewards)
+                # print(f"env_info.rewards: {env_info.rewards}")
+                if env_info.local_done:  # if is_done .... from Udacity
+                    break
+            env_utils.next_states = env_info.vector_observations
+            env_utils.normalize_states()
+            # state_list.append(env_utils.next_states_normalized)
+            self.memory.add(actions, env_info)
+            # learn every second step
+            if step % self.learn_every == 0:
+                self.step()
+            env_utils.states_normalized = env_utils.next_states_normalized.copy()
+        # print(f"state_list2= {state_list}")
+        # print(f"state2={np.array(state_list).min()}")
+        # print(f"state_mean2={np.array(state_list).mean()}")
+        # print(f"state_max2={np.array(state_list).max()}")
+
+
+        # print(f"actions_list= {actions_list}")
+        # print(f"actions_min={np.array(actions_list).min()}")
+        # print(f"actions_mean={np.array(actions_list).mean()}")
+        # print(f"actions_max={np.array(actions_list).max()}")
+        # print(f"actions= {actions}")
+        # print(f"actions_min={np.array(actions).min()}")
+        # print(f"actions_mean={np.array(actions).mean()}")
+        # print(f"actions_max={np.array(actions).max()}")
+        return score_one_episode.min(), score_one_episode.mean(), score_one_episode.max()
+
     def plot_results(self):
         '''
         this Function may contain Code provided by Udacity Inc.
@@ -730,14 +1025,40 @@ class Administration:
         # print(f"plot_results() rewards_all_episodes={self.rewards_all_episodes}")
         # print(f"plot_results() rewards_all_episodes[0]={self.rewards_all_episodes[0]}")
 
-        x_plot = np.arange(len(self.rewards_all_episodes[0]))
-        numOfPlots = 3
+        # x_plot = np.arange(len(self.rewards_all_episodes[0]))
+        # numOfPlots = 3 * self.num_of_parallel_networks
+        #
+        # for plot_number in range(3):
+        #     plt.subplot(numOfPlots, 1, plot_number + 1)
+        #     plt.plot(x_plot, self.rewards_all_episodes[plot_number], '.-')
+        #     # plt.title('A tale of 2 subplots')
+        #     # plt.ylabel('Damped oscillation')
+        #
+        # x_plot = np.arange(self.len(self.scores_all_episodes_and_NW[0, 0, :]))
+        # numOfPlots = 3 * self.num_of_parallel_networks
+        #
+        # for plot_number in range(3):
+        #     plt.subplot(numOfPlots, 1, plot_number + 1)
+        #     plt.plot(x_plot, self.rewards_all_episodes[plot_number], '.-')
+        #     # plt.title('A tale of 2 subplots')
+        #     # plt.ylabel('Damped oscillation')
 
-        for plot_number in range(3):
-            plt.subplot(numOfPlots, 1, plot_number + 1)
-            plt.plot(x_plot, self.rewards_all_episodes[plot_number], '.-')
-            # plt.title('A tale of 2 subplots')
-            # plt.ylabel('Damped oscillation')
+        # x_plot = np.arange(self.len(self.scores_all_episodes_and_NW[0, 0, :]))
+
+        # print(f"scores: {self.scores_all_episodes_and_NW}")
+        # print(f"scores0: {self.scores_all_episodes_and_NW[self.num_of_parallel_networks-1, 0, :]}")
+        # print(f"scores1: {self.scores_all_episodes_and_NW[self.num_of_parallel_networks-1, 1, :]}")
+        # print(f"scores2: {self.scores_all_episodes_and_NW[self.num_of_parallel_networks-1, 2, :]}")
+        x_plot = np.arange(self.scores_all_episodes_and_NW.shape[-1])
+        for row in range(self.num_of_parallel_networks):
+            for column in range(3):
+                # print(f"column{column}")
+                plt.subplot(self.num_of_parallel_networks, 3, (column+1) * (row+1))
+                # print(f" {self.scores_all_episodes_and_NW[self.num_of_parallel_networks-1, column, :]}")
+                plt.plot(x_plot, self.scores_all_episodes_and_NW[self.num_of_parallel_networks-1, column, :], '.-')
+                # plt.title('A tale of 2 subplots')
+                # plt.ylabel('Damped oscillation')
+
 
 
         # elif self.rewards_all_episodes.size()[0] == 1:
@@ -779,35 +1100,6 @@ class Administration:
             plt.show()
         return None
 
-    def train_ddpg(self):
-        '''
-        this function contains some changes but was mainly provided by Udacity Inc.
-        '''
-        scores_deque = deque(maxlen=100)
-        scores = []
-        max_score = -np.Inf
-        for i_episode in range(1, self.episodes_train + 1):
-            state = env.reset()
-            self.reset()
-            score = 0
-            for t in range(self.max_steps_per_training_episode):
-                action = self.act(state)
-                next_state, reward, done, _ = env.step(action)
-                self.step(state, action, reward, next_state, done)
-                state = next_state
-                score += reward
-                if done:
-                    break
-            scores_deque.append(score)
-            scores.append(score)
-            print('\rEpisode {}\tAverage Score: {:.2f}\tScore: {:.2f}'.format(i_episode, np.mean(scores_deque), score),
-                  end="")
-            if i_episode % 100 == 0:
-                torch.save(self.actor_local.state_dict(), 'checkpoint_actor.pth')
-                torch.save(self.critic_local.state_dict(), 'checkpoint_critic.pth')
-                print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
-        return scores
-
     def init_agent(self):
         # examine the state space
         env_info_observation = env.reset(train_mode=self.env_train_mode)[brain_name]
@@ -820,61 +1112,100 @@ class Administration:
         '''
         up from here this Function may contain Code provided by Udacity Inc.
         '''
-        if self.network_type == "DDPG":
+        if self.network_type == "DDPG_0":
             # Actor Network (w/ Target Network)
-            self.actor_local = Actor(self.state_size, self.action_size, self.random_seed,
-                                     self.actor_fc_units).to(device)
-            self.actor_target = Actor(self.state_size, self.action_size, self.random_seed,
-                                      self.actor_fc_units).to(device)
+            self.actor_local = Actor0(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor0(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
             self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
 
             # Critic Network (w/ Target Network)
-            self.critic_local = Critic(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                       self.critic_fcs2_units, self.critic_fcs3_units).to(device)
-            self.critic_target = Critic(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                        self.critic_fcs2_units, self.critic_fcs3_units).to(device)
+            self.critic_local = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
+            self.critic_target = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
+        elif self.network_type == "DDPG_1":
+            # Actor Network (w/ Target Network)
+            self.actor_local = Actor1(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor1(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+
+            # Critic Network (w/ Target Network)
+            self.critic_local = Critic1(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units, self.critic_fcs3_units).to(device)
+            self.critic_target = Critic1(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units, self.critic_fcs3_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
+        elif self.network_type == "DDPG_2":
+            # Actor Network (w/ Target Network)
+            self.actor_local = Actor2(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor2(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+
+            # Critic Network (w/ Target Network)
+
+            self.critic_local = Critic2(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units).to(device)
+            self.critic_target = Critic2(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units).to(device)
             self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
                                                weight_decay=self.weight_decay)
         # elif self.network_type == "NetworkOneHiddenLayer":
         #     self.agent_ = NetworkOneHiddenLayer(s_size=self.state_size, a_size=self.action_size).to(device)
         # elif self.network_type == "NetworkFullyConnected":
         #     self.agent_ = NetworkFullyConnected(state_size=self.state_size, action_size=self.action_size).to(device)
-        # else:
+        else:
             raise MyAppLookupError(f"No valid network_type specified | given: \"{self.network_type}\" | expected: "
                                    f"\"QNetwork\" or \"DoubleQNetwork\"")
 
         # Noise process
-        self.noise = OUNoise(self.action_size, self.random_seed)
-
+        self.noise = OUNoise(self.action_size, self.random_seed, theta=self.noise_theta, sigma=self.noise_sigma)
         # Replay memory
         self.memory = ReplayBuffer(self.action_size, self.buffer_size_admin, self.batch_size_admin, self.random_seed)
         return
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         '''
         this function contains some changes but was mainly provided by Udacity Inc.
         '''
-        # Save experience / reward
-        self.memory.add(state, action, reward, next_state, done)
-
         # Learn, if enough samples are available in memory
         if len(self.memory) > self.batch_size_admin:
+            # print("hello")
             experiences = self.memory.sample()
+            # print(f"experiences: {experiences}")
             self.learn(experiences)
+        return None
 
-    def act(self, state, add_noise=True):
+    def act(self, add_noise=True):
         """Returns actions for given state as per current policy."""
         '''
         this function contains some changes but was mainly provided by Udacity Inc.
         '''
-        state = torch.from_numpy(state).float().to(device)
+        state = torch.from_numpy(env_utils.states_normalized).float().to(device)
         self.actor_local.eval()
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
+        action = np.clip(action, -1, 1)
         if add_noise:
-            action += self.noise.sample()
+            # print(f"noise: {(2*(np.random.randn(self.number_of_agents, self.action_size))-1)*self.noise_sigma}\taction_0: {action}")
+            # # action += self.noise.sample()
+            # action += (2*(np.random.randn(self.number_of_agents, self.action_size))-1)*self.noise_sigma
+            # print(f"noise: {np.random.randn(self.number_of_agents, self.action_size)* self.noise_sigma}\taction_0: {action}")
+            # action += self.noise.sample()
+            # print(f"noise= {np.random.randn(self.number_of_agents, self.action_size) * self.noise_sigma}")
+            action += np.random.randn(self.number_of_agents, self.action_size) * self.noise_sigma
+            # print(f"action in act: {action}")
+            # print(f"action_1: {action}")
         return np.clip(action, -1, 1)
 
     def reset(self):
@@ -898,19 +1229,24 @@ class Administration:
         this function contains some changes but was mainly provided by Udacity Inc.
         '''
         states, actions, rewards, next_states, dones = experiences
-
+        # print(f"states_in_learn: {states}")
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
         actions_next = self.actor_target(next_states)
         Q_targets_next = self.critic_target(next_states, actions_next)
         # Compute Q targets for current states (y_i)
+        # print(f"rewards: {rewards}\n")
+
         Q_targets = rewards + (self.gamma * Q_targets_next * (1 - dones))
         # Compute critic loss
         Q_expected = self.critic_local(states, actions)
         critic_loss = F.mse_loss(Q_expected, Q_targets)
+        # print(f"critic_loss: {critic_loss}")
         # Minimize the loss
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
+        # torch.nn.utils.clip_grad_norm(self.critic_local.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
         self.critic_optimizer.step()
 
         # ---------------------------- update actor ---------------------------- #
