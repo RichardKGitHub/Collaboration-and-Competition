@@ -142,6 +142,7 @@ class EnvUtils:
         # actions_list = []   # only for testing
         # state_list = []     # only for testing
         for _ in range(admin.number_of_random_actions):
+            _ = env.reset(train_mode=admin.env_train_mode)[brain_name]
             actions = np.clip(np.random.randn(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
             # print(f"random_actions={actions}")
             env_info_tr = env.step(actions)[brain_name]
@@ -597,7 +598,7 @@ class Administration:
         self.learning_rate_critic = config_data_interact['learning_rate_critic']
         self.weight_decay = config_data_interact['weight_decay']
         self.learn_every = config_data_interact['learn_every']
-        self.consecutive_learning_steps = config_data_interact['self.consecutive_learning_steps']
+        self.consecutive_learning_steps = config_data_interact['consecutive_learning_steps']
         # self.update_target_every = config_data_interact['update_target_every']
         self.lInterpolParam = config_data_interact['lInterpolParam']
         self.number_of_agents = config_data_interact['number_of_agents']  # 20
@@ -1434,8 +1435,8 @@ if __name__ == "__main__":
     from here on this function may contain some Code provided by Udacity Inc.
     '''
     # check device
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cpu")
 
     # initialize configuration
     admin = Administration(config_data)
