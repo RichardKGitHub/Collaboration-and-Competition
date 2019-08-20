@@ -1,3 +1,4 @@
+# with Q_targets = rewards + (self.gamma * Q_targets_next * (1 - dones))
 # this json file can only be loaded with commentjson instead of json
 # pip install commentjson
 # with open('config.json', 'r') as f:
@@ -5,7 +6,7 @@
 
 {
 "load_indices": "g_01",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
-"save_indices": "_07",               # 11 during training or 11_test during test (for the plot)
+"save_indices": "_17",               # 11 during training or 11_test during test (for the plot)
 "path_load": "results/",
 "path_save": "results/",
 "load_scores_version": 1,            # test the agent with the weights from: 0: min_reward; 1: mean_reward; 2: max_reward
@@ -14,7 +15,7 @@
 "save_plot": true,
 "show_plot": true,
 
-"episodes_train": 450,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
+"episodes_train": 750,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 100,                 # Number of episodes if --train==False
 "target_reward": 13,
 "consecutive_episodes_required": 100, # 100 # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
@@ -60,21 +61,22 @@
 "sigma": 0.5,             # factor for the scaling of the np.random.randn() weight initialisation
 # loss concept
 "noise_theta": 0.1,
-"noise_sigma": 0.018,
-"random_seed": 1,             # random_seed
-# "epsilon_start": 1.0,
-# "epsilon_end": 0.01,
-# "epsilon_decay": 0.995,
-# "epsilon_test": 0.01,     # epsilon during test mode
+"noise_sigma": 0.2,
+"random_seed": 8,             # random_seed
+"epsilon_start": 0.5,
+"epsilon_end": 0.01,          # 0.01
+"epsilon_decay": 0.99,
+"epsilon_test": 0.01,     # epsilon during test mode
 "buffer_size_admin": 1000000,    # replay buffer size
-"batch_size_admin": 10,         # minibatch size
+"batch_size_admin": 1,         # 10 # minibatch size
 "gamma": 0.99,            # discount factor
 "tau": 1e-3,              # for soft update of target parameters
 "learning_rate_actor": 1e-4,    # learning rate of the actor
 "learning_rate_critic": 3e-4,   # learning rate of the critic
 "weight_decay": 0.0001,     # L2 weight decay
 # "update_target_every": 4, # how often to update the network
-"learn_every": 20,          # loern from experiences every <loern_every> steps
+"learn_every": 20,          # 2   20 # loern from experiences every <loern_every> steps
+"self.consecutive_learning_steps": 20,
 "lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -17, -4, -14, -22, -22, -22, -11, -11, -11, -1, -1, -1, -1, -15,
                    -14, -12, -60, -60, -60, -8, -1.1, -8, -0.1, 0.9, -0.1, -1],
                    [4.1, 4.1, 4.1, 1, 1, 1, 1, 17, 4, 14, 22, 22, 22, 11, 11, 11, 1, 1, 1, 1, 15, 14, 12, 60, 60, 60,
@@ -82,10 +84,10 @@
 "number_of_agents": 20,
 "agents_duplication_factor": 1,
 "number_of_random_actions": 5,
-"max_steps_per_training_episode": 200,  # 200 for train(); 1000 for test()
+"max_steps_per_training_episode": 160,  # 200 for train(); 1000 for test()
 "num_of_same_act_repetition": 1,        # 1 for test()
 "env_train_mode": true,    # true during training | false for test
 # # "environment_path":"/data/......x86_64"
 "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64"
-
+# "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/new download/Reacher_Linux_NoVis"
 }
