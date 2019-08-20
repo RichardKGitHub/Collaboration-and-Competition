@@ -1,4 +1,4 @@
-# _20 NW from Bsp
+# _20:  NW from Bsp starting at branch cc_30 using <new download/Reacher_Linux_NoVis/Reacher.x86_64>
 
 # this json file can only be loaded with commentjson instead of json
 # pip install commentjson
@@ -7,7 +7,7 @@
 
 {
 "load_indices": "g_01",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
-"save_indices": "_20",               # 11 during training or 11_test during test (for the plot)
+"save_indices": "20",               # 11 during training or 11_test during test (for the plot)
 "path_load": "results/",
 "path_save": "results/",
 "load_scores_version": 1,            # test the agent with the weights from: 0: min_reward; 1: mean_reward; 2: max_reward
@@ -16,17 +16,17 @@
 "save_plot": true,
 "show_plot": true,
 
-"episodes_train": 250,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
+"episodes_train": 2,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 100,                 # Number of episodes if --train==False
 "target_reward": 13,
 "consecutive_episodes_required": 100, # 100 # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
 
-"network_type": "DDPG_2",     # expected: DDPG, NetworkFullyConnected, NetworkOneHiddenLayer
-"actor_fcs1_units": 17,    # 256
-"actor_fcs2_units": 9,
-"critic_fcs1_units": 17,  # 256
-"critic_fcs2_units": 9,  # 256
+"network_type": "DDPG_4",     # expected: DDPG_1 to DDPG_4    |_1: A2 C3 | _2: A2 C2 | _3: A2 C2 | _4 Bsp A2 C2
+"actor_fcs1_units": 128,    # 256
+"actor_fcs2_units": 128,
+"critic_fcs1_units": 128,  # 256
+"critic_fcs2_units": 128,  # 256
 "critic_fcs3_units": 0,     # 128
 # "critic_fcs4_units": 5,     # 128
 "num_of_parallel_networks": 1,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
@@ -56,6 +56,7 @@
 #"keep_weights_n_worst_mean_big_change": 2,
 #"keep_weights_n_worst_max_big_change": 1,
 # evolution concept
+"add_noise": false,               # add noise to action
 "noise_scale_best_small": 0.0002, # 0.0002
 "noise_scale_best_big": 0.002, #0.002
 "noise_scale_worst": 0.009,    #0.009
@@ -68,27 +69,28 @@
 "epsilon_end": 0.01,          # 0.01
 "epsilon_decay": 0.99,
 "epsilon_test": 0.01,     # epsilon during test mode
-"buffer_size_admin": 1000000,    # replay buffer size
-"batch_size_admin": 1,         # 10 # minibatch size
-"gamma": 0.99,            # discount factor
+"buffer_size_admin": 2000000,    # replay buffer size
+"batch_size_admin": 256,         # 10 # minibatch size
+"gamma": 0.9,            # discount factor
 "tau": 1e-3,              # for soft update of target parameters
-"learning_rate_actor": 1e-4,    # learning rate of the actor
-"learning_rate_critic": 3e-4,   # learning rate of the critic
-"weight_decay": 0.0001,     # L2 weight decay
+"learning_rate_actor": 1e-3,    # learning rate of the actor
+"learning_rate_critic": 1e-3,   # learning rate of the critic
+"weight_decay": 0.000,     # L2 weight decay
 # "update_target_every": 4, # how often to update the network
-"learn_every": 20,          # 2   20 # loern from experiences every <loern_every> steps
-"consecutive_learning_steps": 20,
+"learn_every": 1,          # 2   20 # loern from experiences every <loern_every> steps
+"consecutive_learning_steps": 1,  # how often to learn in one training scession
 "lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -17, -4, -14, -22, -22, -22, -11, -11, -11, -1, -1, -1, -1, -15,
                    -14, -12, -60, -60, -60, -8, -1.1, -8, -0.1, 0.9, -0.1, -1],
                    [4.1, 4.1, 4.1, 1, 1, 1, 1, 17, 4, 14, 22, 22, 22, 11, 11, 11, 1, 1, 1, 1, 15, 14, 12, 60, 60, 60,
                    8, -0.9, 8, 0.1, 1.1, 0.1, 1], false],
 "number_of_agents": 20,
 "agents_duplication_factor": 1,
-"number_of_random_actions": 5,
-"max_steps_per_training_episode": 160,  # 200 for train(); 1000 for test()
+"number_of_random_actions": 0,    # number of random actions before training starts
+"max_steps_per_training_episode": 50,  # 200 for train(); 1000 for test()
 "num_of_same_act_repetition": 1,        # 1 for test()
 "env_train_mode": false,    # true during training | false for test
 # # "environment_path":"/data/......x86_64"
 "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64"
 # "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/new download/Reacher_Linux_NoVis"
+# "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/new download/Reacher_Linux_NoVis/Reacher.x86_64"
 }

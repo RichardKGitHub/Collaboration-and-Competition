@@ -141,8 +141,8 @@ class EnvUtils:
     def get_random_start_state(self):
         # actions_list = []   # only for testing
         # state_list = []     # only for testing
+        env_info_tr = env.reset(train_mode=admin.env_train_mode)[brain_name]
         for _ in range(admin.number_of_random_actions):
-            _ = env.reset(train_mode=admin.env_train_mode)[brain_name]
             actions = np.clip(np.random.randn(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
             # print(f"random_actions={actions}")
             env_info_tr = env.step(actions)[brain_name]
@@ -160,7 +160,7 @@ class EnvUtils:
         # print(f"state_max1={np.array(state_list).max()}")
         self.states = env_info_tr.vector_observations
         self.normalize_states()
-        return
+        return env_info_tr
 
     def get_states_min_max_Values(self):
         # perform some random steps to get a random starting point
@@ -392,7 +392,7 @@ class Actor3(nn.Module):
             fc2_units (int): Number of nodes in second hidden layer
         """
         # fc_units = 256
-        super(Actor2, self).__init__()
+        super(Actor3, self).__init__()
         # self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fcs1_units)
         self.fc2 = nn.Linear(fcs1_units, fcs2_units)
@@ -430,9 +430,9 @@ class Critic3(nn.Module):
             fc2_units (int): Number of nodes in the second hidden layer
         """
         # fcs1_units = 256, fc2_units = 256, fc3_units = 128
-        super(Critic2, self).__init__()
+        super(Critic3, self).__init__()
         # self.seed = torch.manual_seed(seed)
-        self.fcs1 = nn.Linear(state_size, fcs1_units)
+        self.fc1 = nn.Linear(state_size, fcs1_units)
         # self.fc2 = nn.Linear(fcs1_units, fc2_units)
         self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
         # self.fc4 = nn.Linear(fc3_units, fc4_units)
@@ -441,7 +441,7 @@ class Critic3(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        self.fcs1.weight.data.uniform_(*hidden_init(self.fcs1))
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
         # self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
@@ -460,6 +460,104 @@ class Critic3(nn.Module):
         # x = self.fc5(x)
         x = self.fc3(x)
         return x
+
+
+class Actor4(nn.Module):
+    """Actor (Policy) Model."""
+
+    def __init__(self, state_size, action_size, seed, fc1_units=400, fc2_units=300, use_bn=False):
+        """Initialize parameters and build model.
+        Params
+        ======
+            state_size (int): Dimension of each state
+            action_size (int): Dimension of each action
+            seed (int): Random seed
+            fc1_units (int): Number of nodes in first hidden layer
+            fc2_units (int): Number of nodes in second hidden layer
+        """
+        super(Actor4, self).__init__()
+        self.seed = torch.manual_seed(seed)
+        self.use_bn = use_bn
+        self.fc1 = nn.Linear(state_size, fc1_units)
+        self.fc2 = nn.Linear(fc1_units, fc2_units)
+        self.fc3 = nn.Linear(fc2_units, action_size)
+        if self.use_bn:
+            self.bn1 = nn.BatchNorm1d(state_size)
+            self.bn2 = nn.BatchNorm1d(fc1_units)
+            self.bn3 = nn.BatchNorm1d(fc2_units)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
+        self.fc1.bias.data.fill_(0.1)
+        self.fc2.bias.data.fill_(0.1)
+        self.fc3.bias.data.fill_(0.1)
+
+    def forward(self, state):
+        """Build an actor (policy) network that maps states -> actions."""
+        if self.use_bn:
+            x = self.fc1(self.bn1(state))
+        else:
+            x = self.fc1(state)
+
+        x = F.relu(x)
+        if self.use_bn:
+            x = self.bn2(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        if self.use_bn:
+            x = self.bn3(x)
+        return F.tanh(self.fc3(x))
+
+
+class Critic4(nn.Module):
+    """Critic (Value) Model."""
+
+    def __init__(self, state_size, action_size, seed, fc1_units=400, fc2_units=300, use_bn=False):
+        """Initialize parameters and build model.
+        Params
+        ======
+            state_size (int): Dimension of each state
+            action_size (int): Dimension of each action
+            seed (int): Random seed
+            fc1_units (int): Number of nodes in the first hidden layer
+            fc2_units (int): Number of nodes in the second hidden layer
+        """
+        super(Critic4, self).__init__()
+        self.seed = torch.manual_seed(seed)
+        self.use_bn = use_bn
+        self.fc1 = nn.Linear(state_size, fc1_units)
+        self.fc2 = nn.Linear(fc1_units + action_size, fc2_units)
+        self.fc3 = nn.Linear(fc2_units, 1)
+        if self.use_bn:
+            self.bn1 = nn.BatchNorm1d(fc1_units)
+            self.bn2 = nn.BatchNorm1d(fc2_units)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
+        self.fc1.bias.data.fill_(0.1)
+        self.fc2.bias.data.fill_(0.1)
+        self.fc3.bias.data.fill_(0.1)
+
+    def forward(self, state, action):
+        """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
+        x = self.fc1(state)
+        xs = F.relu(x)
+        if self.use_bn:
+            x = self.bn1(x)
+        x = torch.cat((xs, action), dim=1)
+        x = self.fc2(x)
+        x = F.relu(x)
+        if self.use_bn:
+            x = self.bn2(x)
+        return self.fc3(x)
 
 
 class OUNoise:
@@ -578,6 +676,7 @@ class Administration:
         self.keep_weights_n_worst_min_big_change = config_data_interact['keep_weights_n_worst_min_big_change']
         self.keep_weights_n_worst_mean_big_change = config_data_interact['keep_weights_n_worst_mean_big_change']
         self.keep_weights_n_worst_max_big_change = config_data_interact['keep_weights_n_worst_max_big_change']
+        self.add_noise = config_data_interact['add_noise']
         self.noise_scale_best_small = config_data_interact['noise_scale_best_small']
         self.noise_scale_best_big = config_data_interact['noise_scale_best_big']
         self.noise_scale_worst = config_data_interact['noise_scale_worst']
@@ -636,24 +735,11 @@ class Administration:
         self.epsilon_sigma_noise = np.zeros(shape=(self.num_of_parallel_networks, 3, self.episodes_train))
         self.sigma_noiseMean = np.zeros(shape=(self.num_of_parallel_networks, 2, self.max_steps_per_training_episode))
         # print(f"init: max_steps_per_training_episode {self.max_steps_per_training_episode}\nsigma_noiseMean{self.sigma_noiseMean}")
-        self.step_ = 0
+        self.step_counter = 0
         '''
         up from here this Function may contain Code provided by Udacity Inc.
         '''
-
-        if self.network_type == "DDPG_0":
-            self.actor_local = Actor0(self.state_size, self.action_size, self.random_seed,
-                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
-            self.actor_target = Actor0(self.state_size, self.action_size, self.random_seed,
-                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
-            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
-            self.critic_local = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                       self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
-            self.critic_target = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                        self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
-            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
-                                               weight_decay=self.weight_decay)
-        elif self.network_type == "DDPG_1":
+        if self.network_type == "DDPG_1":
             self.actor_local = Actor1(self.state_size, self.action_size, self.random_seed,
                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
             self.actor_target = Actor1(self.state_size, self.action_size, self.random_seed,
@@ -677,216 +763,36 @@ class Administration:
                                         self.critic_fcs2_units).to(device)
             self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
                                                weight_decay=self.weight_decay)
-
-    def update_weightslist(self):
-        """ pick and reuse weights that delivered high rewards
-        add some noise to the weights
-        refill rest with random weights"""
-        # <self.nextweightslist> was initialized at train()
-        # print(f"weights_pre: {self.weightslist}")
-        # idx: array with indexes that deliver rewards (rising rewards from start to end of list)
-        idx = np.array(self.rewards_all_networks.argsort(axis=1))
-        startidx = 0
-
-        # keep weights (amount: <self.keep_weights_n_best_min>) with best min_reward
-        # min_reward = self.rewards_all_networks[0]
-        # example:
-        # fill <nextweightslist> at position 0 and 1 (n=2) with weights that delivered the highest min_reward:
-        # n = 2 = <self.keep_weights_n_best_min> (keep the weights with 2 best min_rewards)
-        # weightslist_new[startidx:startidx+n, :] = weightslist[idx[:, -n:][0]]
-        # weightslist_new[0:2, :] = weightslist[idx[: ,-2][0]
-        # startidx=startidx+n
-        if self.keep_weights_n_best_min > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_min:][0]]
-        startidx = startidx + self.keep_weights_n_best_min
-
-        # keep weights with best mean_reward
-        # mean_reward = self.rewards_all_networks[1]
-        if self.keep_weights_n_best_mean > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_mean:][1]]
-        startidx = startidx + self.keep_weights_n_best_mean
-
-        # keep weights with best max_reward
-        # max_reward = self.rewards_all_networks[2]
-        if self.keep_weights_n_best_max > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_max:][2]]
-        startidx = startidx + self.keep_weights_n_best_max
-
-        # keep weights with best min_reward and add a small noise
-        if self.keep_weights_n_best_min_small_change > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min_small_change, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_min_small_change:][0]] \
-                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_best_min_small_change
-
-        # keep weights with best mean_reward and add a small noise
-        if self.keep_weights_n_best_mean_small_change > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean_small_change, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_mean_small_change:][1]] \
-                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_best_mean_small_change
-
-        # keep weights with best max_reward and add a small noise
-        if self.keep_weights_n_best_max_small_change > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max_small_change, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_max_small_change:][2]] \
-                    + self.noise_scale_best_small * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_best_max_small_change
-
-        # keep weights with best min_reward and add a lot of noise
-        if self.keep_weights_n_best_min_big_change > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_min_big_change, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_min_big_change:][0]] \
-                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_best_min_big_change
-
-        # keep weights with best mean_reward and add a lot of noise
-        if self.keep_weights_n_best_mean_big_change > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_mean_big_change, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_mean_big_change:][1]] \
-                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_best_mean_big_change
-
-        # keep weights with best max_reward and add a lot of noise
-        if self.keep_weights_n_best_max_big_change > 0:
-            self.nextweightslist[startidx:startidx + self.keep_weights_n_best_max_big_change, :] = \
-                    self.weightslist[idx[:, -self.keep_weights_n_best_max_big_change:][2]] \
-                    + self.noise_scale_best_big * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_best_max_big_change
-
-        # keep weights with worst min_reward and add a lot of noise
-        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_min_big_change, :] = \
-                self.weightslist[idx[:, :self.keep_weights_n_worst_min_big_change][0]] \
-                + self.noise_scale_worst * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_worst_min_big_change
-
-        # keep weights with worst mean_reward and add a lot of noise
-        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_mean_big_change, :] = \
-                self.weightslist[idx[:, :self.keep_weights_n_worst_mean_big_change][1]] \
-                + self.noise_scale_worst * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_worst_mean_big_change
-
-        # keep weights with worst max_reward and add a lot of noise
-        self.nextweightslist[startidx:startidx + self.keep_weights_n_worst_max_big_change, :] = \
-                self.weightslist[idx[:, :self.keep_weights_n_worst_max_big_change][2]] \
-                + self.noise_scale_worst * np.random.rand(self.weights_dim)
-        startidx = startidx + self.keep_weights_n_worst_max_big_change
-
-        # fill the rest with random weights
-        self.nextweightslist[startidx:, :] = self.sigma * np.random.rand(self.weights_dim)
-        self.weightslist = self.nextweightslist.copy()
-        # print(f"weights_post: {self.weightslist}")
-        return None
-
-    def train(self):
-        self.weights_dim = agent.get_weights_dim()
-        self.weightslist = self.sigma * np.random.randn(self.num_of_parallel_networks, agent.get_weights_dim())
-        # self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
-        self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
-        # print(
-        #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
-        saved = False
-        time_new = time_start = datetime.datetime.now()
-        for i in range(self.episodes_train):
-            for j in range(self.num_of_parallel_networks):
-                agent.set_weights(self.weightslist[j])
-                env_utils.get_random_start_state()
-                min_reward, mean_reward, max_reward = admin.get_rewards(trainmode=True)
-                self.rewards_all_networks[0, j] = min_reward
-                self.rewards_all_networks[1, j] = mean_reward
-                self.rewards_all_networks[2, j] = max_reward
-            # print(f"episode={i}\nrew_all_ep_0={self.rewards_all_networks.max(axis=1)[0]}\nrew_all_ep_1={self.rewards_all_networks.max(axis=1)[1]}\nrew_all_ep_2={self.rewards_all_networks.max(axis=1)[2]}")
-            for k in range(3):
-                self.rewards_all_episodes[k, i] = self.rewards_all_networks.max(axis=1)[k]
-            if i >= self.consecutive_episodes_required:
-                '''next 3 only for testing'''
-                # rewards_deque = self.rewards_all_episodes[:, i - 100:i + 1]
-                # rewards_deque_mean = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)
-                # rewards_deque_max = self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1).max()
-                # print(f"ci check_indexing in train(): rewards_deque_shape={rewards_deque.shape()} | should be (3,100)")
-                # print(f"ci rewards_deque_mean={rewards_deque_mean} | should be of shape (3))")
-                # print(f"ci rewards_deque_max={rewards_deque_max} | should be one value")
-
-                # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1).max() >= self.target_reward: # if either min or mean or max of Results reaches the goal value
-                # if self.rewards_all_episodes[:,i-100:i+1].mean(axis=1)[0] >= self.target_reward:    # if min of Results reaches the goal value
-                if self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[
-                    1] >= self.target_reward:  # if mean of Results reaches the goal value
-                    print(f"target reward reached in episode: {i - self.consecutive_episodes_required}: "
-                          f"mean_of_means_of_rewards={self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1]}")
-                    # last_max_reward_positions = np.argmax(self.rewards_all_networks,
-                    #                                       axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
-                    # print(f"ci last_max_reward_positions= {last_max_reward_positions}")
-                    # print(
-                    #     f"ci corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
-                    # max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
-                    # max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
-                    # max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
-                    if self.save_weights and not saved:
-                        np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
-                        np.save(self.path_save + 'scores_s' + self.save_indices, self.rewards_all_networks)
-                        saved = True
-                    break
-            # print(f"rewards_all_nw: {self.rewards_all_networks}")
-            # print(f"\n\nrewards_all_ep: {self.rewards_all_episodes}")
-            self.update_weightslist()
-            if (i + 1) % 25 == 0:
-                time_old = time_new
-                time_new = datetime.datetime.now()
-                if i > 99:
-                    print('\rMin_Score {}\tAverage_Score: {:.2f}\tMax_Score {}\tEpisode {}/{}\tTime since start: {}'
-                          '\tdeltaTime: {}'.format(self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[0],
-                                                   self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[1],
-                                                   self.rewards_all_episodes[:, i - 100:i + 1].mean(axis=1)[2],
-                                                   i+1, self.episodes_train, str(time_new-time_start).split('.')[0],
-                                                   str(time_new-time_old).split('.')[0]), end="")
-                else:
-                    print('\rMin_Score - \tAverage_Score: - \tMax_Score - \tEpisode {}/{}\tTime since start: {}'
-                          '\tdeltaTime: {}'.format(i + 1, self.episodes_train, str(time_new - time_start).split('.')[0],
-                                                   str(time_new - time_old).split('.')[0]), end="")
-        admin.plot_results()
-        if self.save_weights:
-            # last_max_reward_positions = np.argmax(self.rewards_all_networks,
-            #                                       axis=1)  # np.argmax gives first max position (even if there are multiple max positions)
-            # print(f"ci Ende: last_max_reward_positions= {last_max_reward_positions}")
-            # # doesn't work yet: print(f"ci Ende: corresponding rewards={[self.rewards_all_networks[z] for z in last_max_reward_positions]}")
-            # # max_reward_weights_min = self.weightslist[last_max_reward_positions[0]]
-            # # max_reward_weights_mean = self.weightslist[last_max_reward_positions[1]]
-            # # max_reward_weights_max = self.weightslist[last_max_reward_positions[2]]
-            np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
-            np.save(self.path_save + 'scores_g' + self.save_indices, self.rewards_all_networks)
-        return None
-
-    def train_ddpg_old(self):
-        '''
-        this function contains some changes but was mainly provided by Udacity Inc.
-        '''
-        scores_deque = deque(maxlen=100)
-        scores = []
-        max_score = -np.Inf
-        for i_episode in range(1, self.episodes_train + 1):
-            state = env.reset()
-            self.reset()
-            score = 0
-            for t in range(self.max_steps_per_training_episode):
-                action = self.act(state)
-                next_state, reward, done, _ = env.step(action)
-                self.step(state, action, reward, next_state, done)
-                state = next_state
-                score += reward
-                if done:
-                    break
-            scores_deque.append(score)
-            scores.append(score)
-            print('\rEpisode {}\tAverage Score: {:.2f}\tScore: {:.2f}'.format(i_episode, np.mean(scores_deque), score),
-                  end="")
-            if i_episode % 100 == 0:
-                torch.save(self.actor_local.state_dict(), 'checkpoint_actor.pth')
-                torch.save(self.critic_local.state_dict(), 'checkpoint_critic.pth')
-                print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
-        return scores
+        elif self.network_type == "DDPG_3":
+            self.actor_local = Actor3(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor3(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+            self.critic_local = Critic3(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                       self.critic_fcs2_units).to(device)
+            self.critic_target = Critic3(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                        self.critic_fcs2_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
+        elif self.network_type == "DDPG_4":
+            self.actor_local = Actor4(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor4(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+            self.critic_local = Critic4(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                       self.critic_fcs2_units).to(device)
+            self.critic_target = Critic4(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                        self.critic_fcs2_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
+        else:
+            raise MyAppLookupError(f"No valid network_type specified | given: \"{self.network_type}\" | expected: "
+                                   f"\"DDPG_1\" to \"DDPG_4\"")
+        self.noise = OUNoise(self.action_size, self.random_seed, theta=self.noise_theta, sigma=self.noise_sigma)
+        # Replay memory
+        self.memory = ReplayBuffer(self.action_size, self.buffer_size_admin, self.batch_size_admin, self.random_seed)
 
     def train_ddpg(self):
         # self.weights_dim = agent.get_weights_dim()
@@ -895,14 +801,15 @@ class Administration:
         # self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
         # print(
         #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
+        print("start training")
         self.epsilon = self.epsilon_start
         saved = False
         time_new = time_start = datetime.datetime.now()
         for i in range(self.episodes_train):
             for j in range(self.num_of_parallel_networks):
                 # agent.set_weights(self.weightslist[j])
-                env_utils.get_random_start_state()
-                min_reward, mean_reward, max_reward = admin.get_rewards_ddpg(trainmode=True)
+                # env_utils.get_random_start_state()
+                min_reward, mean_reward, max_reward = admin.get_rewards_ddpg(trainmode=self.env_train_mode)
                 self.scores_all_episodes_and_NW[j, 0, i] = min_reward
                 self.scores_all_episodes_and_NW[j, 1, i] = mean_reward
                 self.scores_all_episodes_and_NW[j, 2, i] = max_reward
@@ -930,39 +837,50 @@ class Administration:
                               f"{i - self.consecutive_episodes_required}: mean_of_means_of_rewards="
                               f"{self.scores_all_episodes_and_NW[m][:, i - 100:i + 1].mean(axis=1)[1]}")
                         if self.save_weights and not saved:
-                            np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
+                            # np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
+                            self.save_parameter('s_')
                             saved = True
                         break
-            self.update_weightslist()
+            # self.update_weightslist()
             self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_end)
-            if (i + 1) % 25 == 0:
+            if (i + 1) % 1 == 0:
                 time_old = time_new
                 time_new = datetime.datetime.now()
-                if i > 99:
-                    print('\rBest of: Min_Score {}\tAverage_Score: {:.2f}\tMax_Score {}\tEpisode {}/{}\t'
-                          'Time since start: {}\tdeltaTime: '
-                          '{}'.format(self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[0],
-                                      self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[1],
-                                      self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[2],
+                if i > 1:
+                    print('\rscores: mean over last 100 Episodes | last Episode: min: {} | {}\tmean: {:.2f} | {}\t'
+                          'max: {} | {}\tEpisode {}/{}\tTime since start: {}\tdeltaTime: '
+                          '{}'.format(self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[0], min_reward,
+                                      self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[1], mean_reward,
+                                      self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[2], max_reward,
                                       i+1, self.episodes_train, str(time_new-time_start).split('.')[0],
                                       str(time_new-time_old).split('.')[0]), end="")
                 else:
-                    print('\rBest of Min_Score - \tAverage_Score: - \tMax_Score - \tEpisode {}/{}\tTime since start: {}'
-                          '\tdeltaTime: {}'.format(i + 1, self.episodes_train, str(time_new - time_start).split('.')[0],
-                                                   str(time_new - time_old).split('.')[0]), end="")
+                    print('\rscores last episode: min_Score {} \tAverage_Score: {} \tMax_Score {} \tEpisode {}/{}\t'
+                          'Time since start: {}\tdeltaTime: {}'.format(min_reward, mean_reward, max_reward, i + 1,
+                                                                        self.episodes_train,
+                                                                        str(time_new - time_start).split('.')[0],
+                                                                        str(time_new - time_old).split('.')[0]), end="")
         if self.save_weights:
-
-            np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
+            # save your policy!
+            self.save_parameter('g_')
+            # np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
         admin.plot_results()
         return None
 
     def test(self):
+        # load policy if needed
+        self.load_parameter()
         self.epsilon = self.episodes_test
-        self.weights_dim = agent.get_weights_dim()
-        self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
+
+        min_reward, mean_reward, max_reward = admin.get_rewards_ddpg(trainmode=False)
+        print(f"test: reward: {mean_reward}")
+
+        # self.weights_dim = agent.get_weights_dim()
+        # self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
+
         self.rewards_all_networks = np.load(self.path_load + 'scores_' + self.load_indices)
         # self.update_weightslist()
-        agent.set_weights(self.weightslist[self.load_scores_version])
+        # agent.set_weights(self.weightslist[self.load_scores_version])
         # initialize
         # env = environment
         # agent = Agent()
@@ -970,14 +888,15 @@ class Administration:
         rewards_test = []
         rewards_deque = deque(maxlen=self.consecutive_episodes_required)
         means_of_means_of_sum_of_rewards = []
-        for i in range(self.episodes_test):
-            env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
-            env_utils.normalize_states()
-            reward_min, reward_mean, reward_max = agent.get_rewards(env, trainmode=False)
-            rewards_test.append(reward)
-            if i >= self.consecutive_episodes_required:
-                means_of_means_of_sum_of_rewards.append(np.mean(rewards_deque))
-        agent.plot_results(rewards_test)
+
+        # for i in range(self.episodes_test):
+        #     env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
+        #     env_utils.normalize_states()
+        #     reward_min, reward_mean, reward_max = agent.get_rewards(env, trainmode=False)
+        #     rewards_test.append(reward)
+        #     if i >= self.consecutive_episodes_required:
+        #         means_of_means_of_sum_of_rewards.append(np.mean(rewards_deque))
+        # agent.plot_results(rewards_test)
         return None
 
     # def test(self):
@@ -1018,56 +937,24 @@ class Administration:
     #     plot_scores(scores)
     #     return None
 
-    def test_2(self):
-        '''
-        this function contains some changes but was mainly provided by Udacity Inc.
-        '''
-        self.actor_local.load_state_dict(torch.load('checkpoint_actor.pth'))
-        self.critic_local.load_state_dict(torch.load('checkpoint_critic.pth'))
-
-        state = env.reset()
-        self.reset()
-        while True:
-            action = self.act(state)
-            env.render()
-            next_state, reward, done, _ = env.step(action)
-            state = next_state
-            if done:
-                break
-
-        env.close()
-
-    def get_rewards(self, trainmode=True):
-        '''test_networks()'''
-        # get trajectories and discount them --> new Rewards --> not necessary
-        # --> 20 Robots per weight for n episodes --> get weights (raw)
-        rewards_sum = np.zeros(self.number_of_agents)
-        actions_list = []
-        # if trainmode:
-        #     for _ in range(self.number_of_random_actions):
-        #         actions = np.clip(np.random.randn(self.number_of_agents, 4) / 4, a_min=-1, a_max=1)
-        #         env_info_tr = env.step(actions)[brain_name]
-        #     env_utils.states = env_info_tr.vector_observations  # get next state (for each agent)
-        # else:
-        #     env_utils.states = env.reset(train_mode=self.env_train_mode)[brain_name].vector_observations
-        # env_utils.normalize_states()
-        for _ in range(self.max_steps_per_training_episode):
-            actions = agent(
-                torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
-            actions_list.append(actions)
-            '''use same action multiple times'''
-            for i_same_act in range(self.num_of_same_act_repetition):
-                env_info = env.step(actions)[brain_name]
-                rewards_sum += np.array(env_info.rewards)
-                # print(f"env_info.rewards: {env_info.rewards}")
-                if env_info.local_done:  # if is_done .... from Udacity
-                    break
-            env_utils.states = env_info.vector_observations
-            env_utils.normalize_states()
-        # print(f"actions= {actions_list}")
-        # print(f"actions_min={min(actions_list())}")
-        # print(f"actions_max={max(actions_list())}")
-        return rewards_sum.min(), rewards_sum.mean(), rewards_sum.max()
+    # def test_2(self):
+    #     '''
+    #     this function contains some changes but was mainly provided by Udacity Inc.
+    #     '''
+    #     self.actor_local.load_state_dict(torch.load('checkpoint_actor.pth'))
+    #     self.critic_local.load_state_dict(torch.load('checkpoint_critic.pth'))
+    #
+    #     state = env.reset()
+    #     self.reset()
+    #     while True:
+    #         action = self.act(state)
+    #         env.render()
+    #         next_state, reward, done, _ = env.step(action)
+    #         state = next_state
+    #         if done:
+    #             break
+    #
+    #     env.close()
 
     def get_rewards_ddpg(self, trainmode=True):
         '''test_networks()'''
@@ -1078,9 +965,10 @@ class Administration:
         # state_list = []     # only for testing
         self.i_update = 0
         self.sigma_noiseMean = np.zeros(shape=(self.num_of_parallel_networks, 2, self.max_steps_per_training_episode))
+        env_info = env_utils.get_random_start_state()
         for step in range(self.max_steps_per_training_episode):
-            self.step_ = step
-            actions = self.act(add_noise=False)
+            self.step_counter = step
+            actions = self.act()
             # actions = agent(
             #     torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
             actions_list.append(actions)        # only to test actionspace
@@ -1187,22 +1075,7 @@ class Administration:
         '''
         up from here this Function may contain Code provided by Udacity Inc.
         '''
-        if self.network_type == "DDPG_0":
-            # Actor Network (w/ Target Network)
-            self.actor_local = Actor0(self.state_size, self.action_size, self.random_seed,
-                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
-            self.actor_target = Actor0(self.state_size, self.action_size, self.random_seed,
-                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
-            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
-
-            # Critic Network (w/ Target Network)
-            self.critic_local = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                    self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
-            self.critic_target = Critic0(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
-                                    self.critic_fcs2_units, self.critic_fcs3_units, self.critic_fcs4_units).to(device)
-            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
-                                               weight_decay=self.weight_decay)
-        elif self.network_type == "DDPG_1":
+        if self.network_type == "DDPG_1":
             # Actor Network (w/ Target Network)
             self.actor_local = Actor1(self.state_size, self.action_size, self.random_seed,
                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
@@ -1233,14 +1106,36 @@ class Administration:
                                     self.critic_fcs2_units).to(device)
             self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
                                                weight_decay=self.weight_decay)
-        # elif self.network_type == "NetworkOneHiddenLayer":
-        #     self.agent_ = NetworkOneHiddenLayer(s_size=self.state_size, a_size=self.action_size).to(device)
-        # elif self.network_type == "NetworkFullyConnected":
-        #     self.agent_ = NetworkFullyConnected(state_size=self.state_size, action_size=self.action_size).to(device)
+        elif self.network_type == "DDPG_3":
+            # Actor Network (w/ Target Network)
+            self.actor_local = Actor3(self.state_size, self.action_size, self.random_seed,
+                                     self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor3(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+
+            # Critic Network (w/ Target Network)
+            self.critic_local = Critic3(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units).to(device)
+            self.critic_target = Critic3(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                    self.critic_fcs2_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
+        elif self.network_type == "DDPG_4":
+            self.actor_local = Actor4(self.state_size, self.action_size, self.random_seed,
+                                      self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_target = Actor4(self.state_size, self.action_size, self.random_seed,
+                                       self.actor_fcs1_units, self.actor_fcs2_units).to(device)
+            self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.learning_rate_actor)
+            self.critic_local = Critic4(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                        self.critic_fcs2_units).to(device)
+            self.critic_target = Critic4(self.state_size, self.action_size, self.random_seed, self.critic_fcs1_units,
+                                         self.critic_fcs2_units).to(device)
+            self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.learning_rate_critic,
+                                               weight_decay=self.weight_decay)
         else:
             raise MyAppLookupError(f"No valid network_type specified | given: \"{self.network_type}\" | expected: "
-                                   f"\"QNetwork\" or \"DoubleQNetwork\"")
-
+                                   f"\"DDPG_1\" to \"DDPG_4\"")
         # Noise process
         self.noise = OUNoise(self.action_size, self.random_seed, theta=self.noise_theta, sigma=self.noise_sigma)
         # Replay memory
@@ -1261,7 +1156,7 @@ class Administration:
             self.i_update += 1
         return None
 
-    def act(self, add_noise=False):
+    def act(self):
         """Returns actions for given state as per current policy."""
         '''
         this function contains some changes but was mainly provided by Udacity Inc.
@@ -1272,15 +1167,18 @@ class Administration:
         with torch.no_grad():
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
-        self.sigma_noiseMean[0, 0, self.step_] = self.noise_sigma
-        if random.random() < self.epsilon:
-            noise = np.random.randn(self.number_of_agents, self.action_size) * self.noise_sigma
-            action += noise
-            # print(f"no_clip_action = {action}")
-            # print(f"noise_mean {noise.mean()}")
-            self.sigma_noiseMean[0, 1, self.step_] = noise.max()
+        self.sigma_noiseMean[0, 0, self.step_counter] = self.noise_sigma
+        if self.add_noise:
+            if random.random() < self.epsilon:
+                noise = np.random.randn(self.number_of_agents, self.action_size) * self.noise_sigma
+                action += noise
+                # print(f"no_clip_action = {action}")
+                # print(f"noise_mean {noise.mean()}")
+                self.sigma_noiseMean[0, 1, self.step_counter] = noise.max()
+            else:
+                self.sigma_noiseMean[0, 1, self.step_counter] = 0
         else:
-            self.sigma_noiseMean[0, 1, self.step_] = 0
+            self.sigma_noiseMean[0, 1, self.step_counter] = 0
         # print(f"noise_sigma {self.sigma_noiseMean}")
         return np.clip(action, -1, 1)
 
@@ -1377,9 +1275,11 @@ class Administration:
         value_q_loss_loss = Q_expected.detach().cpu().numpy()
         # print(f"i_update: {self.i_update} value_q: {value_q_loss_loss}")
         # print(f"rewards. {rewards}\ntarget. {Q_targets}")
-        self.q_loss_loss_one_episode[0, self.i_update] = rewards
-        self.q_loss_loss_one_episode[1, self.i_update] = Q_targets.detach().cpu().numpy()
-        self.q_loss_loss_one_episode[2, self.i_update] = Q_expected.detach().cpu().numpy()
+        # print(f"rewards in learn: {rewards}")
+        # print(f"critic_loss: {critic_loss}\t actor_loss: {actor_loss}")
+        self.q_loss_loss_one_episode[0, self.i_update] = rewards[0]
+        self.q_loss_loss_one_episode[1, self.i_update] = Q_targets[0].detach().cpu().numpy()
+        self.q_loss_loss_one_episode[2, self.i_update] = Q_expected[0].detach().cpu().numpy()
         self.q_loss_loss_one_episode[3, self.i_update] = critic_loss
         self.q_loss_loss_one_episode[4, self.i_update] = actor_loss
         # self.q_loss_loss_one_episode[0, 0, self.i_update] = rewards
@@ -1400,6 +1300,44 @@ class Administration:
         """
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
+
+    def save_parameter(self, affix):
+        # policy_name = self.path_save + 'policy_' + affix + self.save_indices + '_actor_local.pt'
+        # torch.save(self.actor_local.parameters(), policy_name)
+        torch.save(self.actor_local.state_dict(), self.path_save + 'policy_' + affix + self.save_indices + '_actor_local.pt')
+        torch.save(self.actor_target.state_dict(), self.path_save + 'policy_' + affix + self.save_indices + '_actor_target.pt')
+        torch.save(self.critic_local.state_dict(), self.path_save + 'policy_' + affix + self.save_indices + '_critic_local.pt')
+        torch.save(self.critic_target.state_dict(), self.path_save + 'policy_' + affix + self.save_indices + '_critic_target.pt')
+        # self.soft_update(self.critic_local, self.critic_target)
+        # self.soft_update(self.actor_local, self.actor_target)
+        # for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+        #     target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
+        return None
+
+    def load_parameter(self):
+        # torch.save(model.state_dict(), PATH)
+        # Load:
+        #
+        # device = torch.device('cpu')
+        # model = TheModelClass(*args, **kwargs)
+        # model.load_state_dict(torch.load(PATH, map_location=device))
+
+        # self.actor_local = torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_local.pt')
+        # self.actor_target = torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_target.pt')
+        # self.critic_local = torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_local.pt')
+        # self.critic_target = torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_target.pt')
+        self.actor_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_local.pt',
+                                                    map_location=device))
+        self.actor_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_target.pt',
+                                                    map_location=device))
+        self.critic_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_local.pt',
+                                                    map_location=device))
+        self.critic_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_target.pt',
+                                                    map_location=device))
+        return None
+
+
+
 
 if __name__ == "__main__":
     # Idea of parser: https://docs.python.org/2/howto/argparse.html
@@ -1463,12 +1401,10 @@ if __name__ == "__main__":
         print(f"\nTrain the Network using config_file <{args.config_file}> on device <{device}> "
               f"with weights-save-index <{admin.save_indices}>")
         admin.train_ddpg()
-        # admin.train()
     else:
         print(f"\nTest the Network with fixed weights from <checkpoint_{admin.load_indices}.pth> "
               f"using config_file <{args.config_file}> on device <{device}>")
+        # admin.env_train_mode = False
         admin.test()
     env.close()
 
-
-# agent: differences with old style(one agent vs.2 --> rename in actor_local ?
