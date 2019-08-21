@@ -139,28 +139,13 @@ class EnvUtils:
         return None
 
     def get_random_start_state(self):
-        # actions_list = []   # only for testing
-        # state_list = []     # only for testing
         env_info_tr = env.reset(train_mode=admin.env_train_mode)[brain_name]
         for _ in range(admin.number_of_random_actions):
             actions = np.clip(np.random.randn(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
-            # print(f"random_actions={actions}")
             env_info_tr = env.step(actions)[brain_name]
-            # self.states = env_info_tr.vector_observations        # for test
-            # self.normalize_states()                             #for test
-            # state_list.append(self.states_normalized)                       # for test
-            # actions_list.append(actions)                                    # for test
-        # print(f"actions={np.array(actions_list)}")
-        # print(f"actions_min={actions_list.min()}")
-        # print(f"actions_mean={actions_list.mean()}")
-        # print(f"actions_max={actions_list.max()}")
-        # print(f"state_list1= {state_list}")
-        # print(f"state1={np.array(state_list).min()}")
-        # print(f"state_mean1={np.array(state_list).mean()}")
-        # print(f"state_max1={np.array(state_list).max()}")
         self.states = env_info_tr.vector_observations
         self.normalize_states()
-        return env_info_tr
+        return None
 
     def get_states_min_max_Values(self):
         # perform some random steps to get a random starting point
@@ -187,22 +172,24 @@ class EnvUtils:
         return None
 
     def normalize_states(self):
-        iInterpolationMinOrig = np.array(admin.lInterpolParam[0])
-        iInterpolationMaxOrig = np.array(admin.lInterpolParam[1])
-        iInterpolationMinNew = np.ones(admin.state_size) * -1
-        iInterpolationMaxNew = np.ones(admin.state_size)
-        fAnstieg = (iInterpolationMaxNew - iInterpolationMinNew) / (iInterpolationMaxOrig - iInterpolationMinOrig)
-        fOffset = (iInterpolationMaxOrig * iInterpolationMinNew - iInterpolationMinOrig * iInterpolationMaxNew) / (
-                iInterpolationMaxOrig - iInterpolationMinOrig)
-        if admin.lInterpolParam[2]:  # clip resulting normalized states if requested
-            self.states_normalized = np.clip(fAnstieg * self.states + fOffset, -1, 1)
-            self.next_states_normalized = np.clip(fAnstieg * self.next_states + fOffset, -1, 1)
+        if admin.normalize_states:
+            iInterpolationMinOrig = np.array(admin.lInterpolParam[0])
+            iInterpolationMaxOrig = np.array(admin.lInterpolParam[1])
+            iInterpolationMinNew = np.ones(admin.state_size) * -1
+            iInterpolationMaxNew = np.ones(admin.state_size)
+            fAnstieg = (iInterpolationMaxNew - iInterpolationMinNew) / (iInterpolationMaxOrig - iInterpolationMinOrig)
+            fOffset = (iInterpolationMaxOrig * iInterpolationMinNew - iInterpolationMinOrig * iInterpolationMaxNew) / (
+                    iInterpolationMaxOrig - iInterpolationMinOrig)
+            if admin.lInterpolParam[2]:  # clip resulting normalized states if requested
+                self.states_normalized = np.clip(fAnstieg * self.states + fOffset, -1, 1)
+                self.next_states_normalized = np.clip(fAnstieg * self.next_states + fOffset, -1, 1)
+            else:
+                self.states_normalized = fAnstieg * self.states + fOffset
+                self.next_states_normalized = fAnstieg * self.next_states + fOffset
         else:
-            self.states_normalized = fAnstieg * self.states + fOffset
-            self.next_states_normalized = fAnstieg * self.next_states + fOffset
         # print(f"aInterpolatedData: {self.normalized_states}")
-        # self.states_normalized = self.states.copy()
-        # self.next_states_normalized = self.next_states.copy()
+            self.states_normalized = self.states.copy()
+            self.next_states_normalized = self.next_states.copy()
         # print(f"states_norm: {self.states_normalized}\tstates: {self.states}\nnsn: {self.next_states_normalized}\tns: {self.next_states}")
         return None
 
@@ -660,6 +647,7 @@ class Administration:
         self.save_indices = config_data_interact['save_indices']
         self.path_load = config_data_interact['path_load']
         self.path_save = config_data_interact['path_save']
+        self.load_parameters_from_file = config_data_interact['load_parameters_from_file']
         self.load_scores_version = config_data_interact['load_scores_version']
         self.save_weights = config_data_interact['save_weights']
         self.save_plot = config_data_interact['save_plot']
@@ -713,6 +701,7 @@ class Administration:
         self.consecutive_learning_steps = config_data_interact['consecutive_learning_steps']
         # self.update_target_every = config_data_interact['update_target_every']
         self.lInterpolParam = config_data_interact['lInterpolParam']
+        self.normalize_states = config_data_interact['normalize_states']
         self.number_of_agents = config_data_interact['number_of_agents']  # 20
         self.agents_duplication_factor = config_data_interact['agents_duplication_factor']
         self.number_of_random_actions = config_data_interact['number_of_random_actions']
@@ -816,7 +805,8 @@ class Administration:
         # print(
         #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
 
-        self.load_parameter()
+        if self.load_parameters_from_file:
+            self.load_parameter()
 
         self.soft_update_started=False
         print("start training")
@@ -866,15 +856,15 @@ class Administration:
                 time_old = time_new
                 time_new = datetime.datetime.now()
                 if i > 99:
-                    print('\nscores: mean over last 100 Episodes | last Episode: min: {} | {}\tmean: {:.2f} | {}\t'
-                          'max: {} | {}\tEpisode {}/{}\tTime since start: {}\tdeltaTime: '
+                    print('\nscores: mean over last 100 Episodes | last Episode: min: {:.5f} | {:.5f}\tmean: {:.5f} | {:.5f}\t'
+                          'max: {:.5f} | {:.5f}\tEpisode {}/{}\tTime since start: {}\tdeltaTime: '
                           '{}'.format(self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[0], min_reward,
                                       self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[1], mean_reward,
                                       self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[2], max_reward,
                                       i+1, self.episodes_train, str(time_new-time_start).split('.')[0],
                                       str(time_new-time_old).split('.')[0]), end="")
                 else:
-                    print('\nscores last episode: min_Score {} \tAverage_Score: {} \tMax_Score {} \tEpisode {}/{}\t'
+                    print('\nscores last episode: min_Score {:.5f} \tAverage_Score: {:.5f} \tMax_Score {:.5f} \tEpisode {}/{}\t'
                           'Time since start: {}\tdeltaTime: {}'.format(min_reward, mean_reward, max_reward, i + 1,
                                                                         self.episodes_train,
                                                                         str(time_new - time_start).split('.')[0],
@@ -984,43 +974,29 @@ class Administration:
         # state_list = []     # only for testing
         self.i_update = 0   # for q and loss documentation and soft_update
         self.sigma_noiseMean = np.zeros(shape=(self.num_of_parallel_networks, 2, self.max_steps_per_training_episode))
-        env_info = env_utils.get_random_start_state()
-        test = [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False,
-                False, False, False, True, False]
+        env_utils.get_random_start_state()
         for step in range(self.max_steps_per_training_episode):
             self.step_counter = step    # for sigma and Noise documentation
             actions = self.act()
-            # actions = agent(
-            #     torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
             actions_list.append(actions)        # only to test actionspace
-
-
-            '''use same action multiple times'''
-            # for i_same_act in range(self.num_of_same_act_repetition):
             env_info = env.step(actions)[brain_name]
+            # print(f"0_scores one ep: {score_one_episode}")
             score_one_episode += np.array(env_info.rewards)
-            # print(f"i_same_act should always be 0: {i_same_act}")
+            # print(f"1_scores one ep: {score_one_episode}")
             # print(f"at step {step}\tis_done: {env_info.local_done}")
-            # if env_info.local_done:  # if is_done .... from Udacity
-            #     print(f"first break at step {step}")
-            #     break
             if np.any(env_info.local_done):
                 break
             env_utils.next_states = env_info.vector_observations
             env_utils.normalize_states()
             # state_list.append(env_utils.next_states_normalized)
             self.memory.add(actions, env_info)
-            # learn every <self.learn_every> step
+            # learn every <self.learn_every> steps
             if step % self.learn_every == 0:
-                for loerning_step in range(self.consecutive_learning_steps):
+                for _ in range(self.consecutive_learning_steps):
                     self.step()
-
-            # if step % self.learn_every == 0:
-            #     self.step()
-            # print(f"bbbbbbbbbbbbbbbbbnextstate: {env_utils.next_states_normalized}")
             env_utils.states = env_utils.next_states.copy()
             env_utils.states_normalized = env_utils.next_states_normalized.copy()
-            # print(f"dddddddddddddddddddstate {env_utils.states_normalized}")
+
         # print(f"state_list2= {state_list}")
         # print(f"state2={np.array(state_list).min()}")
         # print(f"state_mean2={np.array(state_list).mean()}")
@@ -1035,6 +1011,7 @@ class Administration:
         # print(f"actions_min={np.array(actions).min()}")
         # print(f"actions_mean={np.array(actions).mean()}")
         # print(f"actions_max={np.array(actions).max()}")
+        # print(f"1_scores one ep: {score_one_episode}")
         return score_one_episode.min(), score_one_episode.mean(), score_one_episode.max()
 
     def plot_results(self):
@@ -1075,22 +1052,22 @@ class Administration:
         if self.show_plot:
             # plot the scores
             plt.show()
-        # '''plot noise_sigma and epsilon'''
-        # list_of_names = ['epsilon', 'sigma_noise', 'max_noise']
-        # x3_plot = np.arange(self.epsilon_sigma_noise.shape[-1])
-        # for row in range(self.num_of_parallel_networks):
-        #     for column in range(3):
-        #         plt.subplot(self.num_of_parallel_networks, 3, (column+1) * (row+1))
-        #         plt.plot(x3_plot, self.epsilon_sigma_noise[self.num_of_parallel_networks-1, column, :], '-')
-        #         plt.title(list_of_names[column])
-        #         # plt.ylabel('episodes')
-        #         # plt.ylabel('scores')
-        # if self.save_plot:
-        #     # save the plot
-        #     plt.savefig(self.path_save + "noise_" + self.save_indices + ".png")
-        # if self.show_plot:
-        #     # plot the scores
-        #     plt.show()
+        '''plot noise_sigma and epsilon'''
+        list_of_names = ['epsilon_if_noise', 'sigma_noise', 'max_noise']
+        x3_plot = np.arange(self.epsilon_sigma_noise.shape[-1])
+        for row in range(self.num_of_parallel_networks):
+            for column in range(3):
+                plt.subplot(self.num_of_parallel_networks, 3, (column+1) * (row+1))
+                plt.plot(x3_plot, self.epsilon_sigma_noise[self.num_of_parallel_networks-1, column, :], '-')
+                plt.title(list_of_names[column])
+                # plt.ylabel('episodes')
+                # plt.ylabel('scores')
+        if self.save_plot:
+            # save the plot
+            plt.savefig(self.path_save + "noise_" + self.save_indices + ".png")
+        if self.show_plot:
+            # plot the scores
+            plt.show()
         return None
 
     def init_agent(self):
