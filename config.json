@@ -1,4 +1,4 @@
-# _20:  NW from Bsp starting at branch cc_30 using <new download/Reacher_Linux_NoVis/Reacher.x86_64>
+# _20:  NW from Bsp starting at branch cc_30 using <new download/Reacher_Linux_NoVis/Reacher.x86_64>   Normalisation on  load weights from g_22 train=false
 
 # this json file can only be loaded with commentjson instead of json
 # pip install commentjson
@@ -6,8 +6,8 @@
 #   config = commentjson.load(f)
 
 {
-"load_indices": "g_01",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
-"save_indices": "20",               # 11 during training or 11_test during test (for the plot)
+"load_indices": "g_22",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
+"save_indices": "23",               # 11 during training or 11_test during test (for the plot)
 "path_load": "results/",
 "path_save": "results/",
 "load_scores_version": 1,            # test the agent with the weights from: 0: min_reward; 1: mean_reward; 2: max_reward
@@ -16,8 +16,8 @@
 "save_plot": true,
 "show_plot": true,
 
-"episodes_train": 2,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
-"episodes_test": 100,                 # Number of episodes if --train==False
+"episodes_train": 50,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
+"episodes_test": 100,                 # Number of episodes if --train==False   # 100000 for env_utils.get_states_min_max_Values()
 "target_reward": 13,
 "consecutive_episodes_required": 100, # 100 # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
@@ -56,17 +56,17 @@
 #"keep_weights_n_worst_mean_big_change": 2,
 #"keep_weights_n_worst_max_big_change": 1,
 # evolution concept
-"add_noise": false,               # add noise to action
+"add_noise": true,               # add noise to action
 "noise_scale_best_small": 0.0002, # 0.0002
 "noise_scale_best_big": 0.002, #0.002
 "noise_scale_worst": 0.009,    #0.009
 "sigma": 0.5,             # factor for the scaling of the np.random.randn() weight initialisation
 # loss concept
-"noise_theta": 0.1,
-"noise_sigma": 0.2,
-"random_seed": 8,             # random_seed
-"epsilon_start": 0.5,
-"epsilon_end": 0.01,          # 0.01
+"noise_theta": 0.24,
+"noise_sigma": 0.013,
+"random_seed": 10,             # random_seed
+"epsilon_start": 1,         # 0.5 # epsilon = 0 is greedy |epsilon = 1 is random (always with noise)
+"epsilon_end": 1,          # 0.01
 "epsilon_decay": 0.99,
 "epsilon_test": 0.01,     # epsilon during test mode
 "buffer_size_admin": 2000000,    # replay buffer size
@@ -86,11 +86,11 @@
 "number_of_agents": 20,
 "agents_duplication_factor": 1,
 "number_of_random_actions": 0,    # number of random actions before training starts
-"max_steps_per_training_episode": 50,  # 200 for train(); 1000 for test()
-"num_of_same_act_repetition": 1,        # 1 for test()
-"env_train_mode": false,    # true during training | false for test
+"max_steps_per_training_episode": 100000,  # 200 for train(); 1000 for test()
+# "num_of_same_act_repetition": 1,        # 1 for test()  # dont support !=1 for train (mixup betwean next_state and state)
+"env_train_mode": true,    # true during training | false for test
 # # "environment_path":"/data/......x86_64"
-"environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64"
+# "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/Reacher_Linux/Reacher.x86_64"
 # "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/new download/Reacher_Linux_NoVis"
-# "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/new download/Reacher_Linux_NoVis/Reacher.x86_64"
+"environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p2_continuous-control/new download/Reacher_Linux_NoVis/Reacher.x86_64"
 }

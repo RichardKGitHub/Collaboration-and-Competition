@@ -195,12 +195,15 @@ class EnvUtils:
         fOffset = (iInterpolationMaxOrig * iInterpolationMinNew - iInterpolationMinOrig * iInterpolationMaxNew) / (
                 iInterpolationMaxOrig - iInterpolationMinOrig)
         if admin.lInterpolParam[2]:  # clip resulting normalized states if requested
-            self.states_normalized = np.clip(fAnstieg * env_utils.states + fOffset, 0, 1)
-            self.next_states_normalized = np.clip(fAnstieg * env_utils.next_states + fOffset, 0, 1)
+            self.states_normalized = np.clip(fAnstieg * self.states + fOffset, -1, 1)
+            self.next_states_normalized = np.clip(fAnstieg * self.next_states + fOffset, -1, 1)
         else:
-            self.states_normalized = fAnstieg * env_utils.states + fOffset
-            self.next_states_normalized = fAnstieg * env_utils.next_states + fOffset
+            self.states_normalized = fAnstieg * self.states + fOffset
+            self.next_states_normalized = fAnstieg * self.next_states + fOffset
         # print(f"aInterpolatedData: {self.normalized_states}")
+        # self.states_normalized = self.states.copy()
+        # self.next_states_normalized = self.next_states.copy()
+        # print(f"states_norm: {self.states_normalized}\tstates: {self.states}\nnsn: {self.next_states_normalized}\tns: {self.next_states}")
         return None
 
 
@@ -510,6 +513,7 @@ class Actor4(nn.Module):
         x = F.relu(x)
         if self.use_bn:
             x = self.bn3(x)
+        # print(f"forward actor bn: {self.use_bn}")
         return F.tanh(self.fc3(x))
 
 
@@ -557,6 +561,7 @@ class Critic4(nn.Module):
         x = F.relu(x)
         if self.use_bn:
             x = self.bn2(x)
+        # print(f"forward critic bn: {self.use_bn}")
         return self.fc3(x)
 
 
@@ -565,7 +570,7 @@ class OUNoise:
     '''
     this class contains some changes but was mainly provided by Udacity Inc.
     '''
-    def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.1):
+    def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.theta = theta
@@ -575,18 +580,25 @@ class OUNoise:
 
     def reset(self):
         """Reset the internal state (= noise) to mean (mu)."""
-        self.state = copy.copy(self.mu)
+        self.state_noise = copy.copy(self.mu)
+        # print(f"resetNoise: {self.state_noise}")
 
     def sample(self):
+        # """Update internal state and return it as a noise sample."""
+        # x = self.state
+        # # dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random()*2 -1 for i in range(len(x))])
+        # # dx = self.theta * (self.mu - x) * self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
+        # dx = self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
+        # # print(f"noise x: {self.state}\tnoise mu-x {self.mu - x}\tdx: {dx}")
+        # # self.state = x +dx
+        # self.state = dx
         """Update internal state and return it as a noise sample."""
-        x = self.state
-        # dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random()*2 -1 for i in range(len(x))])
-        # dx = self.theta * (self.mu - x) * self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
-        dx = self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
-        # print(f"noise x: {self.state}\tnoise mu-x {self.mu - x}\tdx: {dx}")
-        # self.state = x +dx
-        self.state = dx
-        return self.state
+        x = self.state_noise
+        # print(f"Noise: {self.state_noise}\ttheta: {self.theta}\tmu: {self.mu}\tsigma: {self.sigma}")
+        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        self.state_noise = x + dx
+        # print(f"noise: {self.state_noise}")
+        return self.state_noise
 
 
 class ReplayBuffer:
@@ -616,6 +628,7 @@ class ReplayBuffer:
             reward = environment_info.rewards[agent_count]
             next_state = env_utils.next_states_normalized[agent_count]
             is_done = environment_info.local_done[agent_count]
+            # print(f"add_memory inputs: s:{state}\na:{action}\nr:{reward}\nns:{next_state}\nd:{is_done}")
             # self.memory.add(state, action, reward, next_state, is_done)
             e = self.experience(state, action, reward, next_state, is_done)
             self.memory.append(e)
@@ -704,7 +717,7 @@ class Administration:
         self.agents_duplication_factor = config_data_interact['agents_duplication_factor']
         self.number_of_random_actions = config_data_interact['number_of_random_actions']
         self.max_steps_per_training_episode = config_data_interact['max_steps_per_training_episode']
-        self.num_of_same_act_repetition = config_data_interact['num_of_same_act_repetition']
+        # self.num_of_same_act_repetition = config_data_interact['num_of_same_act_repetition']
         self.env_train_mode = config_data_interact['env_train_mode']
         self.environment_path = config_data_interact['environment_path']
         if train is True:
@@ -793,6 +806,7 @@ class Administration:
         self.noise = OUNoise(self.action_size, self.random_seed, theta=self.noise_theta, sigma=self.noise_sigma)
         # Replay memory
         self.memory = ReplayBuffer(self.action_size, self.buffer_size_admin, self.batch_size_admin, self.random_seed)
+        self.soft_update_started = False
 
     def train_ddpg(self):
         # self.weights_dim = agent.get_weights_dim()
@@ -801,6 +815,10 @@ class Administration:
         # self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
         # print(
         #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
+
+        self.load_parameter()
+
+        self.soft_update_started=False
         print("start training")
         self.epsilon = self.epsilon_start
         saved = False
@@ -809,6 +827,7 @@ class Administration:
             for j in range(self.num_of_parallel_networks):
                 # agent.set_weights(self.weightslist[j])
                 # env_utils.get_random_start_state()
+                self.noise.reset()
                 min_reward, mean_reward, max_reward = admin.get_rewards_ddpg(trainmode=self.env_train_mode)
                 self.scores_all_episodes_and_NW[j, 0, i] = min_reward
                 self.scores_all_episodes_and_NW[j, 1, i] = mean_reward
@@ -833,9 +852,9 @@ class Administration:
                     # if mean of Results reaches the goal value
                     # print(f"hello Value: {self.scores_all_episodes_and_NW[m, :, i - 100:i + 1].mean(axis=1)[1]}")
                     if self.scores_all_episodes_and_NW[m, :, i - 100:i + 1].mean(axis=1)[1] >= self.target_reward:
-                        print(f"target reward reached by Network No. {m} in episode: "
+                        print(f"\ntarget reward reached by Network No. {m} in episode: "
                               f"{i - self.consecutive_episodes_required}: mean_of_means_of_rewards="
-                              f"{self.scores_all_episodes_and_NW[m][:, i - 100:i + 1].mean(axis=1)[1]}")
+                              f"{self.scores_all_episodes_and_NW[m][:, i - 100:i + 1].mean(axis=1)[1]}\n")
                         if self.save_weights and not saved:
                             # np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
                             self.save_parameter('s_')
@@ -846,8 +865,8 @@ class Administration:
             if (i + 1) % 1 == 0:
                 time_old = time_new
                 time_new = datetime.datetime.now()
-                if i > 1:
-                    print('\rscores: mean over last 100 Episodes | last Episode: min: {} | {}\tmean: {:.2f} | {}\t'
+                if i > 99:
+                    print('\nscores: mean over last 100 Episodes | last Episode: min: {} | {}\tmean: {:.2f} | {}\t'
                           'max: {} | {}\tEpisode {}/{}\tTime since start: {}\tdeltaTime: '
                           '{}'.format(self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[0], min_reward,
                                       self.scores_all_episodes_and_NW[0][:, i - 100:i + 1].mean(axis=1)[1], mean_reward,
@@ -855,15 +874,15 @@ class Administration:
                                       i+1, self.episodes_train, str(time_new-time_start).split('.')[0],
                                       str(time_new-time_old).split('.')[0]), end="")
                 else:
-                    print('\rscores last episode: min_Score {} \tAverage_Score: {} \tMax_Score {} \tEpisode {}/{}\t'
+                    print('\nscores last episode: min_Score {} \tAverage_Score: {} \tMax_Score {} \tEpisode {}/{}\t'
                           'Time since start: {}\tdeltaTime: {}'.format(min_reward, mean_reward, max_reward, i + 1,
                                                                         self.episodes_train,
                                                                         str(time_new - time_start).split('.')[0],
                                                                         str(time_new - time_old).split('.')[0]), end="")
-        if self.save_weights:
-            # save your policy!
-            self.save_parameter('g_')
-            # np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
+            if self.save_weights:
+                # save your policy!
+                self.save_parameter('g_')
+                # np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
         admin.plot_results()
         return None
 
@@ -878,7 +897,7 @@ class Administration:
         # self.weights_dim = agent.get_weights_dim()
         # self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
 
-        self.rewards_all_networks = np.load(self.path_load + 'scores_' + self.load_indices)
+        # self.rewards_all_networks = np.load(self.path_load + 'scores_' + self.load_indices)
         # self.update_weightslist()
         # agent.set_weights(self.weightslist[self.load_scores_version])
         # initialize
@@ -963,22 +982,30 @@ class Administration:
         score_one_episode = np.zeros(self.number_of_agents)
         actions_list = []   #   only to check behavior
         # state_list = []     # only for testing
-        self.i_update = 0
+        self.i_update = 0   # for q and loss documentation and soft_update
         self.sigma_noiseMean = np.zeros(shape=(self.num_of_parallel_networks, 2, self.max_steps_per_training_episode))
         env_info = env_utils.get_random_start_state()
+        test = [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False,
+                False, False, False, True, False]
         for step in range(self.max_steps_per_training_episode):
-            self.step_counter = step
+            self.step_counter = step    # for sigma and Noise documentation
             actions = self.act()
             # actions = agent(
             #     torch.from_numpy(env_utils.normalized_states).float().to(device)).squeeze().cpu().detach().numpy()
             actions_list.append(actions)        # only to test actionspace
+
+
             '''use same action multiple times'''
-            for i_same_act in range(self.num_of_same_act_repetition):
-                env_info = env.step(actions)[brain_name]
-                score_one_episode += np.array(env_info.rewards)
-                # print(f"env_info.rewards: {env_info.rewards}")
-                if env_info.local_done:  # if is_done .... from Udacity
-                    break
+            # for i_same_act in range(self.num_of_same_act_repetition):
+            env_info = env.step(actions)[brain_name]
+            score_one_episode += np.array(env_info.rewards)
+            # print(f"i_same_act should always be 0: {i_same_act}")
+            # print(f"at step {step}\tis_done: {env_info.local_done}")
+            # if env_info.local_done:  # if is_done .... from Udacity
+            #     print(f"first break at step {step}")
+            #     break
+            if np.any(env_info.local_done):
+                break
             env_utils.next_states = env_info.vector_observations
             env_utils.normalize_states()
             # state_list.append(env_utils.next_states_normalized)
@@ -990,7 +1017,10 @@ class Administration:
 
             # if step % self.learn_every == 0:
             #     self.step()
+            # print(f"bbbbbbbbbbbbbbbbbnextstate: {env_utils.next_states_normalized}")
+            env_utils.states = env_utils.next_states.copy()
             env_utils.states_normalized = env_utils.next_states_normalized.copy()
+            # print(f"dddddddddddddddddddstate {env_utils.states_normalized}")
         # print(f"state_list2= {state_list}")
         # print(f"state2={np.array(state_list).min()}")
         # print(f"state_mean2={np.array(state_list).mean()}")
@@ -1045,22 +1075,22 @@ class Administration:
         if self.show_plot:
             # plot the scores
             plt.show()
-        '''plot noise_sigma and epsilon'''
-        list_of_names = ['epsilon', 'sigma_noise', 'max_noise']
-        x3_plot = np.arange(self.epsilon_sigma_noise.shape[-1])
-        for row in range(self.num_of_parallel_networks):
-            for column in range(3):
-                plt.subplot(self.num_of_parallel_networks, 3, (column+1) * (row+1))
-                plt.plot(x3_plot, self.epsilon_sigma_noise[self.num_of_parallel_networks-1, column, :], '-')
-                plt.title(list_of_names[column])
-                # plt.ylabel('episodes')
-                # plt.ylabel('scores')
-        if self.save_plot:
-            # save the plot
-            plt.savefig(self.path_save + "noise_" + self.save_indices + ".png")
-        if self.show_plot:
-            # plot the scores
-            plt.show()
+        # '''plot noise_sigma and epsilon'''
+        # list_of_names = ['epsilon', 'sigma_noise', 'max_noise']
+        # x3_plot = np.arange(self.epsilon_sigma_noise.shape[-1])
+        # for row in range(self.num_of_parallel_networks):
+        #     for column in range(3):
+        #         plt.subplot(self.num_of_parallel_networks, 3, (column+1) * (row+1))
+        #         plt.plot(x3_plot, self.epsilon_sigma_noise[self.num_of_parallel_networks-1, column, :], '-')
+        #         plt.title(list_of_names[column])
+        #         # plt.ylabel('episodes')
+        #         # plt.ylabel('scores')
+        # if self.save_plot:
+        #     # save the plot
+        #     plt.savefig(self.path_save + "noise_" + self.save_indices + ".png")
+        # if self.show_plot:
+        #     # plot the scores
+        #     plt.show()
         return None
 
     def init_agent(self):
@@ -1148,7 +1178,7 @@ class Administration:
         this function contains some changes but was mainly provided by Udacity Inc.
         '''
         # Learn, if enough samples are available in memory
-        if len(self.memory) > max(self.batch_size_admin, 512):
+        if len(self.memory) > max(self.batch_size_admin, 255):      # wait till a buffer of at least 256
             # print(f"size memory: {len(self.memory)}")
             experiences = self.memory.sample()
             # print(f"experiences: {experiences}")
@@ -1170,7 +1200,9 @@ class Administration:
         self.sigma_noiseMean[0, 0, self.step_counter] = self.noise_sigma
         if self.add_noise:
             if random.random() < self.epsilon:
-                noise = np.random.randn(self.number_of_agents, self.action_size) * self.noise_sigma
+                # noise = np.random.randn(self.number_of_agents, self.action_size) * self.noise_sigma
+                # print(f"no_NOISE_action = {action}")
+                noise = self.noise.sample()
                 action += noise
                 # print(f"no_clip_action = {action}")
                 # print(f"noise_mean {noise.mean()}")
@@ -1253,7 +1285,10 @@ class Administration:
         critic_loss.backward()
         # critic_loss.backward(torch.Tensor([1,10]))
         # torch.nn.utils.clip_grad_norm(self.critic_local.parameters(), 1)
-        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+
+        '''suggestet clipping'''
+        # torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+
         self.critic_optimizer.step()
 
         # ---------------------------- update actor ---------------------------- #
@@ -1269,7 +1304,7 @@ class Administration:
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.critic_local, self.critic_target)
         self.soft_update(self.actor_local, self.actor_target)
-
+        self.soft_update_started = True
         # save reward Q_target Q_expected critic_loss and actor_loss values for plot #
         # print(f"Q_ex: {Q_expected}\tcr: {critic_loss}\tac: {actor_loss}")
         value_q_loss_loss = Q_expected.detach().cpu().numpy()
@@ -1298,8 +1333,16 @@ class Administration:
             target_model: PyTorch model (weights will be copied to)
             tau (float): interpolation parameter
         """
-        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
+        # if self.i_update != 0:
+        # print(f"sustarted: {self.soft_update_started}")
+        if self.soft_update_started:
+            for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+                target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
+                # print(f'soft Tau: {self.tau}')
+        else:
+            for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+                target_param.data.copy_(local_param.data)
+                # print('copy instead softupdate')
 
     def save_parameter(self, affix):
         # policy_name = self.path_save + 'policy_' + affix + self.save_indices + '_actor_local.pt'
@@ -1326,17 +1369,19 @@ class Administration:
         # self.actor_target = torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_target.pt')
         # self.critic_local = torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_local.pt')
         # self.critic_target = torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_target.pt')
-        self.actor_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_local.pt',
-                                                    map_location=device))
-        self.actor_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_target.pt',
-                                                    map_location=device))
-        self.critic_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_local.pt',
-                                                    map_location=device))
-        self.critic_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_target.pt',
-                                                    map_location=device))
+        self.actor_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_local.pt'))
+        self.actor_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_target.pt'))
+        self.critic_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_local.pt'))
+        self.critic_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_target.pt'))
+        # self.actor_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_local.pt'))
+        # self.actor_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_actor_target.pt',
+        #                                             map_location=device))
+        # self.critic_local.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_local.pt',
+        #                                             map_location=device))
+        # self.critic_target.load_state_dict(torch.load(self.path_load + 'policy_' + self.load_indices + '_critic_target.pt',
+        #                                             map_location=device))
+
         return None
-
-
 
 
 if __name__ == "__main__":
