@@ -1,13 +1,11 @@
-# _20:  NW from Bsp starting at branch cc_30 using <new download/Reacher_Linux_NoVis/Reacher.x86_64>   Normalisation on  load weights from g_22 train=false
-
 # this json file can only be loaded with commentjson instead of json
 # pip install commentjson
 # with open('config.json', 'r') as f:
 #   config = commentjson.load(f)
 
 {
-"load_indices": "g_22",               # s_09 for solved weights or g_09 for general weights (after episodes_train steps)
-"save_indices": "23",               # 11 during training or 11_test during test (for the plot)
+"load_indices": "g_0",               # s_25 for solved weights or g_23 for general weights (after episodes_train steps)
+"save_indices": "26",               # 26 during training or 26_test during test (for the plot)
 "path_load": "results/",
 "path_save": "results/",
 "load_parameters_from_file": false,
@@ -17,7 +15,7 @@
 "save_plot": true,
 "show_plot": true,
 
-"episodes_train": 2500,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
+"episodes_train": 250,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 100,                 # Number of episodes if --train==False   # 100000 for env_utils.get_states_min_max_Values()
 "target_reward": 13,
 "consecutive_episodes_required": 100, # 100 # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
@@ -30,19 +28,8 @@
 "critic_fcs2_units": 128,  # 256
 "critic_fcs3_units": 0,     # 128
 # "critic_fcs4_units": 5,     # 128
-"num_of_parallel_networks": 1,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
-"keep_weights_n_best_min": 0,               # 4 no change
-"keep_weights_n_best_mean": 0,
-"keep_weights_n_best_max": 0,
-"keep_weights_n_best_min_small_change": 0,  # 20 best small change
-"keep_weights_n_best_mean_small_change": 0,
-"keep_weights_n_best_max_small_change": 0,
-"keep_weights_n_best_min_big_change": 0,    # 12 best big change
-"keep_weights_n_best_mean_big_change": 0,
-"keep_weights_n_best_max_big_change": 0,
-"keep_weights_n_worst_min_big_change": 0,   # 4 worst big change
-"keep_weights_n_worst_mean_big_change": 0,
-"keep_weights_n_worst_max_big_change": 0,
+# "num_of_parallel_networks": 1,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
+
 #"num_of_parallel_networks": 50,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
 #"keep_weights_n_best_min": 1,               # 4 no change
 #"keep_weights_n_best_mean": 2,
@@ -78,7 +65,7 @@
 "learning_rate_critic": 1e-3,   # learning rate of the critic
 "weight_decay": 0.000,     # L2 weight decay
 # "update_target_every": 4, # how often to update the network
-"learn_every": 1,          # 2   20 # loern from experiences every <loern_every> steps
+# "learn_every": 1,          # 2   20 # loern from experiences every <loern_every> steps
 "consecutive_learning_steps": 1,  # how often to learn in one training scession
 "lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -17, -4, -14, -22, -22, -22, -11, -11, -11, -1, -1, -1, -1, -15,
                    -14, -12, -60, -60, -60, -8, -1.1, -8, -0.1, 0.9, -0.1, -1],

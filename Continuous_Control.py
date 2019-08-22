@@ -14,100 +14,6 @@ from torch.distributions import Categorical
 from unityagents import UnityEnvironment
 from collections import deque
 
-# class NetworkFullyConnected(nn.Module):
-#     """Actor (Policy) Model."""
-#     '''
-#     this class was provided by Udacity Inc.
-#     '''
-#
-#     def __init__(self, state_size, action_size, seed=1203, fc1_units=21, fc2_units=10):
-#         """Initialize parameters and build model.
-#         Params
-#         ======
-#             state_size (int): Dimension of each state
-#             action_size (int): Dimension of each action
-#             seed (int): Random seed
-#             fc1_units (int): Number of nodes in first hidden layer
-#             fc2_units (int): Number of nodes in second hidden layer
-#         """
-#         super(NetworkFullyConnected, self).__init__()
-#         self.seed = torch.manual_seed(seed)
-#         self.fc1 = nn.Linear(state_size, fc1_units)
-#         self.fc2 = nn.Linear(fc1_units, fc2_units)
-#         self.fc3 = nn.Linear(fc2_units, action_size)  # self.sig = nn.Sigmoid()
-#
-#     def forward(self, state):
-#         """Build a network that maps state -> action values."""
-#         x = F.relu(self.fc1(state))
-#         x = F.relu(self.fc2(x))
-#         return self.fc3(x)  # return self.sig(self.fc2(x))
-#
-#     # from Udacity REINFORCE in Policy Gradient Methods
-#     def act(self, state):
-#         state = torch.from_numpy(state).float().unsqueeze(0).to(device)
-#         probs = self.forward(state).cpu()
-#         m = Categorical(probs)
-#         action = m.sample()
-#         return action.item(), m.log_prob(action)
-#
-# class NetworkOneHiddenLayer(nn.Module):
-#     '''from CEM.py  Lesson2 Nr.9 Workspace'''
-#
-#     def __init__(self, s_size, a_size, h_size=8):
-#         # 00: h_size=16
-#         # 01: h_size=16
-#         # 02: h_size=8
-#
-#         super(NetworkOneHiddenLayer, self).__init__()
-#         # state, hidden layer, action sizes
-#         self.s_size = s_size
-#         self.h_size = h_size
-#         self.a_size = a_size
-#         # define layers
-#         self.fc1 = nn.Linear(self.s_size, self.h_size)
-#         self.fc2 = nn.Linear(self.h_size, self.a_size)
-#
-#     def set_weights(self, weights):
-#         s_size = self.s_size
-#         h_size = self.h_size
-#         a_size = self.a_size
-#         # separate the weights for each layer
-#         fc1_end = (s_size * h_size) + h_size
-#         # print(f"weights.shape: {weights.shape}")
-#         # print(f"weights[:s_size * h_size].shape: {weights[:s_size * h_size].shape}")
-#         fc1_W = torch.from_numpy(weights[:s_size * h_size].reshape(s_size, h_size))
-#         fc1_b = torch.from_numpy(weights[s_size * h_size:fc1_end])
-#         fc2_W = torch.from_numpy(weights[fc1_end:fc1_end + (h_size * a_size)].reshape(h_size, a_size))
-#         fc2_b = torch.from_numpy(weights[fc1_end + (h_size * a_size):])
-#         # set the weights for each layer
-#         self.fc1.weight.data.copy_(fc1_W.view_as(self.fc1.weight.data))
-#         self.fc1.bias.data.copy_(fc1_b.view_as(self.fc1.bias.data))
-#         self.fc2.weight.data.copy_(fc2_W.view_as(self.fc2.weight.data))
-#         self.fc2.bias.data.copy_(fc2_b.view_as(self.fc2.bias.data))
-#
-#     def get_weights_dim(self):
-#         return (self.s_size + 1) * self.h_size + (self.h_size + 1) * self.a_size
-#
-#     def forward(self, x):
-#         x = F.relu(self.fc1(x))
-#         x = F.tanh(self.fc2(x))
-#         x = 2*x - 1
-#         return x.cpu().data
-#
-#     # def evaluate(self, weights, gamma=1.0, max_t=5000):
-#     #     self.set_weights(weights)
-#     #     episode_return = 0.0
-#     #     state = self.env.reset()
-#     #     for t in range(max_t):
-#     #         state = torch.from_numpy(state).float().to(device)
-#     #         action = self.forward(state)
-#     #         state, reward, done, _ = self.env.step(action)
-#     #         episode_return += reward * math.pow(gamma, t)
-#     #         if done:
-#     #             break
-#     #     return episode_return
-
-
 def hidden_init(layer):
     '''
     this function was provided by Udacity Inc.
@@ -155,19 +61,14 @@ class EnvUtils:
         for _ in range(admin.episodes_test):
             for _ in range(400):
                 actions = np.clip(np.random.rand(admin.number_of_agents, 4) / 4, a_min=-1, a_max=1)
-                # print(f"actions_1:{actions_1}\nbrain_name={brain_name}")
                 env_info_tr = env.step(actions)[brain_name]
                 actions_.append(actions)
                 states.append(env_info_tr.vector_observations)  # get next state (for each agent)
             _ = env.reset(train_mode=True)[brain_name]
         states = np.array(states)
-        # print(f"states: {states}")
         min1 = states.min(axis=1)
-        # print(f"min1: {min1}")
         min2 = min1.min(axis=0)
-        # print(f"min2: {min2}")
         max2 = states.max(axis=1).max(axis=0)
-        # med=states.mean(axis=1).mean(axis=0)
         print(f"stateMin: {min2}\n\nstateMax: {max2}")
         return None
 
@@ -180,17 +81,16 @@ class EnvUtils:
             fAnstieg = (iInterpolationMaxNew - iInterpolationMinNew) / (iInterpolationMaxOrig - iInterpolationMinOrig)
             fOffset = (iInterpolationMaxOrig * iInterpolationMinNew - iInterpolationMinOrig * iInterpolationMaxNew) / (
                     iInterpolationMaxOrig - iInterpolationMinOrig)
-            if admin.lInterpolParam[2]:  # clip resulting normalized states if requested
+            # clip resulting normalized states if requested
+            if admin.lInterpolParam[2]:
                 self.states_normalized = np.clip(fAnstieg * self.states + fOffset, -1, 1)
                 self.next_states_normalized = np.clip(fAnstieg * self.next_states + fOffset, -1, 1)
             else:
                 self.states_normalized = fAnstieg * self.states + fOffset
                 self.next_states_normalized = fAnstieg * self.next_states + fOffset
         else:
-        # print(f"aInterpolatedData: {self.normalized_states}")
             self.states_normalized = self.states.copy()
             self.next_states_normalized = self.next_states.copy()
-        # print(f"states_norm: {self.states_normalized}\tstates: {self.states}\nnsn: {self.next_states_normalized}\tns: {self.next_states}")
         return None
 
 
@@ -209,7 +109,6 @@ class Actor1(nn.Module):
             fc1_units (int): Number of nodes in first hidden layer
             fc2_units (int): Number of nodes in second hidden layer
         """
-        # fc_units = 256
         super(Actor1, self).__init__()
         # self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fcs1_units)
@@ -247,14 +146,10 @@ class Critic1(nn.Module):
             fcs1_units (int): Number of nodes in the first hidden layer
             fc2_units (int): Number of nodes in the second hidden layer
         """
-        # fcs1_units = 256, fc2_units = 256, fc3_units = 128
         super(Critic1, self).__init__()
-        # self.seed = torch.manual_seed(seed)
         self.fcs1 = nn.Linear(state_size, fcs1_units)
         self.fc2 = nn.Linear(fcs1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units+action_size, fc3_units)
-        # self.fc4 = nn.Linear(fc3_units, fc4_units)
-        # self.fc5 = nn.Linear(fc4_units, 1)
         self.fc4 = nn.Linear(fc3_units, 1)
         self.reset_parameters()
 
@@ -262,20 +157,14 @@ class Critic1(nn.Module):
         self.fcs1.weight.data.uniform_(*hidden_init(self.fcs1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
-        # self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
-        # self.fc5.weight.data.uniform_(-3e-3, 3e-3)
         self.fc4.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         xs = F.leaky_relu(self.fcs1(state))
         xs = F.leaky_relu(self.fc2(xs))
-        # xs = 2 * xs - 1
         x = torch.cat((xs, action), dim=1)
         x = F.leaky_relu(self.fc3(x))
-        # x = F.leaky_relu(self.fc4(x))
-        # # x = torch.tanh(self.fc5(x))
-        # x = self.fc5(x)
         x = self.fc4(x)
         return x
 
@@ -313,8 +202,6 @@ class Actor2(nn.Module):
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
         x = torch.tanh(self.fc3(x))
-        # x = 2 * x - 1
-        # x = F.relu(self.fc3(x))
         return x
 
 
@@ -337,10 +224,7 @@ class Critic2(nn.Module):
         super(Critic2, self).__init__()
         # self.seed = torch.manual_seed(seed)
         self.fcs1 = nn.Linear(state_size, fcs1_units)
-        # self.fc2 = nn.Linear(fcs1_units, fc2_units)
         self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
-        # self.fc4 = nn.Linear(fc3_units, fc4_units)
-        # self.fc5 = nn.Linear(fc4_units, 1)
         self.fc3 = nn.Linear(fc2_units, 1)
         self.reset_parameters()
 
@@ -348,9 +232,6 @@ class Critic2(nn.Module):
         self.fcs1.weight.data.uniform_(*hidden_init(self.fcs1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
-        # self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
-        # self.fc5.weight.data.uniform_(-3e-3, 3e-3)
-        # self.fc4.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
@@ -399,8 +280,6 @@ class Actor3(nn.Module):
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
         x = torch.tanh(self.fc3(x))
-        # x = 2 * x - 1
-        # x = F.relu(self.fc3(x))
         return x
 
 
@@ -423,10 +302,7 @@ class Critic3(nn.Module):
         super(Critic3, self).__init__()
         # self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fcs1_units)
-        # self.fc2 = nn.Linear(fcs1_units, fc2_units)
         self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
-        # self.fc4 = nn.Linear(fc3_units, fc4_units)
-        # self.fc5 = nn.Linear(fc4_units, 1)
         self.fc3 = nn.Linear(fc2_units, 1)
         self.reset_parameters()
 
@@ -434,20 +310,12 @@ class Critic3(nn.Module):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
-        # self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
-        # self.fc5.weight.data.uniform_(-3e-3, 3e-3)
-        # self.fc4.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         xs = F.leaky_relu(self.fcs1(state))
-        # xs = F.leaky_relu(self.fc2(xs))
-        # xs = 2 * xs - 1
         x = torch.cat((xs, action), dim=1)
         x = F.leaky_relu(self.fc2(x))
-        # x = F.leaky_relu(self.fc4(x))
-        # # x = torch.tanh(self.fc5(x))
-        # x = self.fc5(x)
         x = self.fc3(x)
         return x
 
@@ -467,14 +335,14 @@ class Actor4(nn.Module):
         """
         super(Actor4, self).__init__()
         self.seed = torch.manual_seed(seed)
-        self.use_bn = use_bn
+        # self.use_bn = use_bn
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units, action_size)
-        if self.use_bn:
-            self.bn1 = nn.BatchNorm1d(state_size)
-            self.bn2 = nn.BatchNorm1d(fc1_units)
-            self.bn3 = nn.BatchNorm1d(fc2_units)
+        # if self.use_bn:
+        #     self.bn1 = nn.BatchNorm1d(state_size)
+        #     self.bn2 = nn.BatchNorm1d(fc1_units)
+        #     self.bn3 = nn.BatchNorm1d(fc2_units)
 
         self.reset_parameters()
 
@@ -482,25 +350,24 @@ class Actor4(nn.Module):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
-        self.fc1.bias.data.fill_(0.1)
-        self.fc2.bias.data.fill_(0.1)
-        self.fc3.bias.data.fill_(0.1)
+        # self.fc1.bias.data.fill_(0.1)
+        # self.fc2.bias.data.fill_(0.1)
+        # self.fc3.bias.data.fill_(0.1)
 
     def forward(self, state):
         """Build an actor (policy) network that maps states -> actions."""
-        if self.use_bn:
-            x = self.fc1(self.bn1(state))
-        else:
-            x = self.fc1(state)
-
+        # if self.use_bn:
+        #     x = self.fc1(self.bn1(state))
+        # else:
+        #     x = self.fc1(state)
+        x = self.fc1(state)
         x = F.relu(x)
-        if self.use_bn:
-            x = self.bn2(x)
+        # if self.use_bn:
+        #     x = self.bn2(x)
         x = self.fc2(x)
         x = F.relu(x)
-        if self.use_bn:
-            x = self.bn3(x)
-        # print(f"forward actor bn: {self.use_bn}")
+        # if self.use_bn:
+        #     x = self.bn3(x)
         return F.tanh(self.fc3(x))
 
 
@@ -519,13 +386,13 @@ class Critic4(nn.Module):
         """
         super(Critic4, self).__init__()
         self.seed = torch.manual_seed(seed)
-        self.use_bn = use_bn
+        # self.use_bn = use_bn
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units + action_size, fc2_units)
         self.fc3 = nn.Linear(fc2_units, 1)
-        if self.use_bn:
-            self.bn1 = nn.BatchNorm1d(fc1_units)
-            self.bn2 = nn.BatchNorm1d(fc2_units)
+        # if self.use_bn:
+        #     self.bn1 = nn.BatchNorm1d(fc1_units)
+        #     self.bn2 = nn.BatchNorm1d(fc2_units)
 
         self.reset_parameters()
 
@@ -533,22 +400,21 @@ class Critic4(nn.Module):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
-        self.fc1.bias.data.fill_(0.1)
-        self.fc2.bias.data.fill_(0.1)
-        self.fc3.bias.data.fill_(0.1)
+        # self.fc1.bias.data.fill_(0.1)
+        # self.fc2.bias.data.fill_(0.1)
+        # self.fc3.bias.data.fill_(0.1)
 
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         x = self.fc1(state)
         xs = F.relu(x)
-        if self.use_bn:
-            x = self.bn1(x)
+        # if self.use_bn:
+        #     x = self.bn1(x)
         x = torch.cat((xs, action), dim=1)
         x = self.fc2(x)
         x = F.relu(x)
-        if self.use_bn:
-            x = self.bn2(x)
-        # print(f"forward critic bn: {self.use_bn}")
+        # if self.use_bn:
+        #     x = self.bn2(x)
         return self.fc3(x)
 
 
@@ -560,6 +426,7 @@ class OUNoise:
     def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
+        self.state_noise = np.zeros(size)
         self.theta = theta
         self.sigma = sigma
         self.seed = random.seed(seed)
@@ -568,23 +435,12 @@ class OUNoise:
     def reset(self):
         """Reset the internal state (= noise) to mean (mu)."""
         self.state_noise = copy.copy(self.mu)
-        # print(f"resetNoise: {self.state_noise}")
 
     def sample(self):
-        # """Update internal state and return it as a noise sample."""
-        # x = self.state
-        # # dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random()*2 -1 for i in range(len(x))])
-        # # dx = self.theta * (self.mu - x) * self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
-        # dx = self.sigma * np.array([random.random() * 2 - 1 for i in range(len(x))])
-        # # print(f"noise x: {self.state}\tnoise mu-x {self.mu - x}\tdx: {dx}")
-        # # self.state = x +dx
-        # self.state = dx
         """Update internal state and return it as a noise sample."""
         x = self.state_noise
-        # print(f"Noise: {self.state_noise}\ttheta: {self.theta}\tmu: {self.mu}\tsigma: {self.sigma}")
         dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
         self.state_noise = x + dx
-        # print(f"noise: {self.state_noise}")
         return self.state_noise
 
 
@@ -615,8 +471,6 @@ class ReplayBuffer:
             reward = environment_info.rewards[agent_count]
             next_state = env_utils.next_states_normalized[agent_count]
             is_done = environment_info.local_done[agent_count]
-            # print(f"add_memory inputs: s:{state}\na:{action}\nr:{reward}\nns:{next_state}\nd:{is_done}")
-            # self.memory.add(state, action, reward, next_state, is_done)
             e = self.experience(state, action, reward, next_state, is_done)
             self.memory.append(e)
         return None
@@ -659,24 +513,22 @@ class Administration:
         self.network_type = config_data_interact['network_type']
         self.actor_fcs1_units = config_data_interact['actor_fcs1_units']
         self.actor_fcs2_units = config_data_interact['actor_fcs2_units']
-        # self.actor_fcs_units = config_data_interact['actor_fc_units']
         self.critic_fcs1_units = config_data_interact['critic_fcs1_units']
         self.critic_fcs2_units = config_data_interact['critic_fcs2_units']
         self.critic_fcs3_units = config_data_interact['critic_fcs3_units']
-        # self.critic_fcs4_units = config_data_interact['critic_fcs4_units']
-        self.num_of_parallel_networks = config_data_interact['num_of_parallel_networks']  # 50
-        self.keep_weights_n_best_min = config_data_interact['keep_weights_n_best_min']
-        self.keep_weights_n_best_mean = config_data_interact['keep_weights_n_best_mean']
-        self.keep_weights_n_best_max = config_data_interact['keep_weights_n_best_max']
-        self.keep_weights_n_best_min_small_change = config_data_interact['keep_weights_n_best_min_small_change']
-        self.keep_weights_n_best_mean_small_change = config_data_interact['keep_weights_n_best_mean_small_change']
-        self.keep_weights_n_best_max_small_change = config_data_interact['keep_weights_n_best_max_small_change']
-        self.keep_weights_n_best_min_big_change = config_data_interact['keep_weights_n_best_min_big_change']
-        self.keep_weights_n_best_mean_big_change = config_data_interact['keep_weights_n_best_mean_big_change']
-        self.keep_weights_n_best_max_big_change = config_data_interact['keep_weights_n_best_max_big_change']
-        self.keep_weights_n_worst_min_big_change = config_data_interact['keep_weights_n_worst_min_big_change']
-        self.keep_weights_n_worst_mean_big_change = config_data_interact['keep_weights_n_worst_mean_big_change']
-        self.keep_weights_n_worst_max_big_change = config_data_interact['keep_weights_n_worst_max_big_change']
+        # self.num_of_parallel_networks = config_data_interact['num_of_parallel_networks']  # 50
+        # self.keep_weights_n_best_min = config_data_interact['keep_weights_n_best_min']
+        # self.keep_weights_n_best_mean = config_data_interact['keep_weights_n_best_mean']
+        # self.keep_weights_n_best_max = config_data_interact['keep_weights_n_best_max']
+        # self.keep_weights_n_best_min_small_change = config_data_interact['keep_weights_n_best_min_small_change']
+        # self.keep_weights_n_best_mean_small_change = config_data_interact['keep_weights_n_best_mean_small_change']
+        # self.keep_weights_n_best_max_small_change = config_data_interact['keep_weights_n_best_max_small_change']
+        # self.keep_weights_n_best_min_big_change = config_data_interact['keep_weights_n_best_min_big_change']
+        # self.keep_weights_n_best_mean_big_change = config_data_interact['keep_weights_n_best_mean_big_change']
+        # self.keep_weights_n_best_max_big_change = config_data_interact['keep_weights_n_best_max_big_change']
+        # self.keep_weights_n_worst_min_big_change = config_data_interact['keep_weights_n_worst_min_big_change']
+        # self.keep_weights_n_worst_mean_big_change = config_data_interact['keep_weights_n_worst_mean_big_change']
+        # self.keep_weights_n_worst_max_big_change = config_data_interact['keep_weights_n_worst_max_big_change']
         self.add_noise = config_data_interact['add_noise']
         self.noise_scale_best_small = config_data_interact['noise_scale_best_small']
         self.noise_scale_best_big = config_data_interact['noise_scale_best_big']
@@ -697,46 +549,43 @@ class Administration:
         self.learning_rate_actor = config_data_interact['learning_rate_actor']
         self.learning_rate_critic = config_data_interact['learning_rate_critic']
         self.weight_decay = config_data_interact['weight_decay']
-        self.learn_every = config_data_interact['learn_every']
+        # self.learn_every = config_data_interact['learn_every']
         self.consecutive_learning_steps = config_data_interact['consecutive_learning_steps']
-        # self.update_target_every = config_data_interact['update_target_every']
         self.lInterpolParam = config_data_interact['lInterpolParam']
         self.normalize_states = config_data_interact['normalize_states']
         self.number_of_agents = config_data_interact['number_of_agents']  # 20
         self.agents_duplication_factor = config_data_interact['agents_duplication_factor']
         self.number_of_random_actions = config_data_interact['number_of_random_actions']
         self.max_steps_per_training_episode = config_data_interact['max_steps_per_training_episode']
-        # self.num_of_same_act_repetition = config_data_interact['num_of_same_act_repetition']
         self.env_train_mode = config_data_interact['env_train_mode']
         self.environment_path = config_data_interact['environment_path']
         if train is True:
-            self.scores_all_episodes_and_NW = np.empty(shape=(self.num_of_parallel_networks, 3, self.episodes_train))
+            self.scores_all_episodes_and_NW = np.empty(shape=(1, 3, self.episodes_train))
         else:
-            self.scores_all_episodes_and_NW = np.empty(shape=(self.num_of_parallel_networks, 3, self.episodes_test))
-        self.rewards_all_networks = np.empty(shape=(3, self.num_of_parallel_networks))
-        self.weightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
-        self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, 612))
+            self.scores_all_episodes_and_NW = np.empty(shape=(1, 3, self.episodes_test))
+        self.rewards_all_networks = np.empty(shape=(3, 1))
+        # self.weightslist = np.empty(shape=(1, 612))
+        # self.nextweightslist = np.empty(shape=(1, 612))
         self.state_size = 33
         self.action_size = 4
         self.weights_dim = 612
         # check correctness of keep_weights inputs
-        sum_of_keep_weights = self.keep_weights_n_best_min + self.keep_weights_n_best_mean + \
-                              self.keep_weights_n_best_max + self.keep_weights_n_best_min_small_change + \
-                              self.keep_weights_n_best_mean_small_change + self.keep_weights_n_best_max_small_change + \
-                              self.keep_weights_n_best_min_big_change + self.keep_weights_n_best_mean_big_change + \
-                              self.keep_weights_n_best_max_big_change + self.keep_weights_n_worst_min_big_change + \
-                              self.keep_weights_n_worst_mean_big_change + self.keep_weights_n_worst_max_big_change
-        if self.num_of_parallel_networks < sum_of_keep_weights:
-            raise MyAppLookupError(f"\nthe Number of parallel Networks ({self.num_of_parallel_networks}) is smaller than "
-                                   f"the Number of intended weights to keep ({sum_of_keep_weights})\n"
-                                   f"please change the <keep_weights...> or <num_of_parallel_networks> parameter "
-                                   f"in your config file ({args.config_file})")
+        # sum_of_keep_weights = self.keep_weights_n_best_min + self.keep_weights_n_best_mean + \
+        #                       self.keep_weights_n_best_max + self.keep_weights_n_best_min_small_change + \
+        #                       self.keep_weights_n_best_mean_small_change + self.keep_weights_n_best_max_small_change + \
+        #                       self.keep_weights_n_best_min_big_change + self.keep_weights_n_best_mean_big_change + \
+        #                       self.keep_weights_n_best_max_big_change + self.keep_weights_n_worst_min_big_change + \
+        #                       self.keep_weights_n_worst_mean_big_change + self.keep_weights_n_worst_max_big_change
+        # if self.num_of_parallel_networks < sum_of_keep_weights:
+        #     raise MyAppLookupError(f"\nthe Number of parallel Networks ({self.num_of_parallel_networks}) is smaller than "
+        #                            f"the Number of intended weights to keep ({sum_of_keep_weights})\n"
+        #                            f"please change the <keep_weights...> or <num_of_parallel_networks> parameter "
+        #                            f"in your config file ({args.config_file})")
         self.i_update = 0
         self.q_loss_loss_one_episode = np.zeros(shape=(5, int(self.max_steps_per_training_episode/self.learn_every*self.consecutive_learning_steps)))
-        self.q_loss_loss = np.zeros(shape=(self.num_of_parallel_networks, 5, self.episodes_train))
-        self.epsilon_sigma_noise = np.zeros(shape=(self.num_of_parallel_networks, 3, self.episodes_train))
-        self.sigma_noiseMean = np.zeros(shape=(self.num_of_parallel_networks, 2, self.max_steps_per_training_episode))
-        # print(f"init: max_steps_per_training_episode {self.max_steps_per_training_episode}\nsigma_noiseMean{self.sigma_noiseMean}")
+        self.q_loss_loss = np.zeros(shape=(1, 5, self.episodes_train))
+        self.epsilon_sigma_noise = np.zeros(shape=(1, 3, self.episodes_train))
+        self.sigma_noiseMean = np.zeros(shape=(1, 2, self.max_steps_per_training_episode))
         self.step_counter = 0
         '''
         up from here this Function may contain Code provided by Udacity Inc.
@@ -798,32 +647,22 @@ class Administration:
         self.soft_update_started = False
 
     def train_ddpg(self):
-        # self.weights_dim = agent.get_weights_dim()
-        # self.weightslist = self.sigma * np.random.randn(self.num_of_parallel_networks, agent.get_weights_dim())
-        # # self.weightslist = np.load(self.path_load + 'weights_' + self.load_indices + '.npy')
-        # self.nextweightslist = np.empty(shape=(self.num_of_parallel_networks, agent.get_weights_dim()))
-        # print(
-        #     f"weights: {self.weightslist}\nlenWeights: {len(self.weightslist)}\nweights_dim: {agent.get_weights_dim()}")
-
         if self.load_parameters_from_file:
             self.load_parameter()
 
         self.soft_update_started=False
         print("start training")
         self.epsilon = self.epsilon_start
-        saved = False
+        solved = False
         time_new = time_start = datetime.datetime.now()
         for i in range(self.episodes_train):
-            for j in range(self.num_of_parallel_networks):
-                # agent.set_weights(self.weightslist[j])
-                # env_utils.get_random_start_state()
+            for j in range(1):
                 self.noise.reset()
                 min_reward, mean_reward, max_reward = admin.get_rewards_ddpg(trainmode=self.env_train_mode)
                 self.scores_all_episodes_and_NW[j, 0, i] = min_reward
                 self.scores_all_episodes_and_NW[j, 1, i] = mean_reward
                 self.scores_all_episodes_and_NW[j, 2, i] = max_reward
                 mean_of_q_loss_loss = self.q_loss_loss_one_episode.mean(axis=1)
-                # print(f"mean_of_ll: {mean_of_q_loss_loss}")
                 self.q_loss_loss[j, 0, i] = mean_of_q_loss_loss[0]
                 self.q_loss_loss[j, 1, i] = mean_of_q_loss_loss[1]
                 self.q_loss_loss[j, 2, i] = mean_of_q_loss_loss[2]
@@ -831,26 +670,18 @@ class Administration:
                 self.q_loss_loss[j, 4, i] = mean_of_q_loss_loss[4]
                 self.epsilon_sigma_noise[j, 0, i] = self.epsilon
                 mean_of_sigma_noise = self.sigma_noiseMean[j].mean(axis=1)
-                # print(f"mean_of_sigma_noise: {self.sigma_noiseMean}")
                 self.epsilon_sigma_noise[j, 1, i] = mean_of_sigma_noise[0]
                 self.epsilon_sigma_noise[j, 2, i] = mean_of_sigma_noise[1]
-                # self.epsilon_sigma_noise[j, 0, i] = self.epsilon
-            # print(f"g_loss: {self.q_loss_loss}")
-            if i >= self.consecutive_episodes_required:
-                # rewards_deque_episodes = self.rewards_all_episodes[:, i - 100:i + 1]
-                for m in range(self.num_of_parallel_networks):
-                    # if mean of Results reaches the goal value
-                    # print(f"hello Value: {self.scores_all_episodes_and_NW[m, :, i - 100:i + 1].mean(axis=1)[1]}")
-                    if self.scores_all_episodes_and_NW[m, :, i - 100:i + 1].mean(axis=1)[1] >= self.target_reward:
-                        print(f"\ntarget reward reached by Network No. {m} in episode: "
-                              f"{i - self.consecutive_episodes_required}: mean_of_means_of_rewards="
-                              f"{self.scores_all_episodes_and_NW[m][:, i - 100:i + 1].mean(axis=1)[1]}\n")
-                        if self.save_weights and not saved:
-                            # np.save(self.path_save + 'weights_s' + self.save_indices, self.weightslist)
-                            self.save_parameter('s_')
-                            saved = True
-                        break
-            # self.update_weightslist()
+            if i >= self.consecutive_episodes_required and not solved:
+                # if mean of Results reaches the goal value
+                if self.scores_all_episodes_and_NW[0][:, i - self.consecutive_episodes_required:i + 1].mean(axis=1)[1] >= self.target_reward:
+                    print(f"\n\ntarget reward reached in episode: "
+                          f"{i - self.consecutive_episodes_required}: mean_of_means_of_rewards: "
+                          f"{self.scores_all_episodes_and_NW[0][:, i - self.consecutive_episodes_required:i + 1].mean(axis=1)[1]}")
+                    if self.save_weights:
+                        self.save_parameter('s_')
+                    solved = True
+                    # break
             self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_end)
             if (i + 1) % 1 == 0:
                 time_old = time_new
@@ -870,9 +701,7 @@ class Administration:
                                                                         str(time_new - time_start).split('.')[0],
                                                                         str(time_new - time_old).split('.')[0]), end="")
             if self.save_weights:
-                # save your policy!
                 self.save_parameter('g_')
-                # np.save(self.path_save + 'weights_g' + self.save_indices, self.weightslist)
         admin.plot_results()
         return None
 
@@ -965,53 +794,26 @@ class Administration:
     #
     #     env.close()
 
-    def get_rewards_ddpg(self, trainmode=True):
-        '''test_networks()'''
-        # get trajectories and discount them --> new Rewards --> not necessary
-        # --> 20 Robots per weight for n episodes --> get weights (raw)
+    def get_rewards_ddpg(self):
         score_one_episode = np.zeros(self.number_of_agents)
-        actions_list = []   #   only to check behavior
-        # state_list = []     # only for testing
-        self.i_update = 0   # for q and loss documentation and soft_update
-        self.sigma_noiseMean = np.zeros(shape=(self.num_of_parallel_networks, 2, self.max_steps_per_training_episode))
+        self.i_update = 0                                           # used for q and loss documentation
+        self.sigma_noiseMean = np.zeros(shape=(1, 2, self.max_steps_per_training_episode))
         env_utils.get_random_start_state()
         for step in range(self.max_steps_per_training_episode):
-            self.step_counter = step    # for sigma and Noise documentation
+            self.step_counter = step                                # used for sigma and Noise documentation
             actions = self.act()
-            actions_list.append(actions)        # only to test actionspace
             env_info = env.step(actions)[brain_name]
-            # print(f"0_scores one ep: {score_one_episode}")
             score_one_episode += np.array(env_info.rewards)
-            # print(f"1_scores one ep: {score_one_episode}")
-            # print(f"at step {step}\tis_done: {env_info.local_done}")
             if np.any(env_info.local_done):
                 break
             env_utils.next_states = env_info.vector_observations
             env_utils.normalize_states()
-            # state_list.append(env_utils.next_states_normalized)
             self.memory.add(actions, env_info)
-            # learn every <self.learn_every> steps
             if step % self.learn_every == 0:
                 for _ in range(self.consecutive_learning_steps):
                     self.step()
             env_utils.states = env_utils.next_states.copy()
             env_utils.states_normalized = env_utils.next_states_normalized.copy()
-
-        # print(f"state_list2= {state_list}")
-        # print(f"state2={np.array(state_list).min()}")
-        # print(f"state_mean2={np.array(state_list).mean()}")
-        # print(f"state_max2={np.array(state_list).max()}")
-
-
-        # print(f"actions_list= {actions_list}")
-        # print(f"actions_min={np.array(actions_list).min()}")
-        # print(f"actions_mean={np.array(actions_list).mean()}")
-        # print(f"actions_max={np.array(actions_list).max()}")
-        # print(f"actions= {actions}")
-        # print(f"actions_min={np.array(actions).min()}")
-        # print(f"actions_mean={np.array(actions).mean()}")
-        # print(f"actions_max={np.array(actions).max()}")
-        # print(f"1_scores one ep: {score_one_episode}")
         return score_one_episode.min(), score_one_episode.mean(), score_one_episode.max()
 
     def plot_results(self):
@@ -1021,10 +823,10 @@ class Administration:
         x_plot = np.arange(self.scores_all_episodes_and_NW.shape[-1])
         '''plot scores'''
         list_of_names = ['min_scores', 'mean_scores', 'max_scores']
-        for row in range(self.num_of_parallel_networks):
+        for row in range(1):
             for column in range(3):
-                plt.subplot(self.num_of_parallel_networks, 3, (column+1) * (row+1))
-                plt.plot(x_plot, self.scores_all_episodes_and_NW[self.num_of_parallel_networks-1, column, :], '-')
+                plt.subplot(1, 3, (column+1) * (row+1))
+                plt.plot(x_plot, self.scores_all_episodes_and_NW[1-1, column, :], '-')
                 plt.title(list_of_names[column])
                 plt.xlabel('episodes')
                 plt.ylabel('scores')
@@ -1039,10 +841,10 @@ class Administration:
         """ !!! in learn: only last network gets saved into first Position [0]"""
         list_of_names = ['reward_lastNW', 'Q_target_lastNW', 'Q_expected_lastNW', 'critic_loss_lastNW',
                          'actor_loss_lastNW']
-        for row in range(self.num_of_parallel_networks):
+        for row in range(1):
             for column in range(5):
-                plt.subplot(self.num_of_parallel_networks, 5, (column+1) * (row+1))
-                plt.plot(x2_plot, self.q_loss_loss[self.num_of_parallel_networks-1, column, :], '-')
+                plt.subplot(1, 5, (column+1) * (row+1))
+                plt.plot(x2_plot, self.q_loss_loss[1-1, column, :], '-')
                 plt.title(list_of_names[column])
                 # plt.ylabel('episodes')
                 # plt.ylabel('scores')
@@ -1050,15 +852,15 @@ class Administration:
             # save the plot
             plt.savefig(self.path_save + "losses_" + self.save_indices + ".png")
         if self.show_plot:
-            # plot the scores
+            # plot the losses
             plt.show()
         '''plot noise_sigma and epsilon'''
         list_of_names = ['epsilon_if_noise', 'sigma_noise', 'max_noise']
         x3_plot = np.arange(self.epsilon_sigma_noise.shape[-1])
-        for row in range(self.num_of_parallel_networks):
+        for row in range(1):
             for column in range(3):
-                plt.subplot(self.num_of_parallel_networks, 3, (column+1) * (row+1))
-                plt.plot(x3_plot, self.epsilon_sigma_noise[self.num_of_parallel_networks-1, column, :], '-')
+                plt.subplot(1, 3, (column+1) * (row+1))
+                plt.plot(x3_plot, self.epsilon_sigma_noise[1-1, column, :], '-')
                 plt.title(list_of_names[column])
                 # plt.ylabel('episodes')
                 # plt.ylabel('scores')
@@ -1066,7 +868,7 @@ class Administration:
             # save the plot
             plt.savefig(self.path_save + "noise_" + self.save_indices + ".png")
         if self.show_plot:
-            # plot the scores
+            # plot the noise information
             plt.show()
         return None
 
@@ -1076,9 +878,6 @@ class Administration:
         states_observation = env_info_observation.vector_observations
         self.state_size = states_observation.shape[1]
         self.action_size = brain.vector_action_space_size
-        # print(f" init_agent: s_size: {self.state_size}\n a_size: {action_size}")  # s_size: 33;  a_size: 4
-        # agent_ = NetworkFullyConnected(state_size=state_size, action_size=action_size).to(device)
-        # optimizer = optim.Adam(agent_.parameters(), lr=1e-4)        # policy.parameters()
         '''
         up from here this Function may contain Code provided by Udacity Inc.
         '''
