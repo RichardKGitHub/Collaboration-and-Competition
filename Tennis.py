@@ -97,7 +97,7 @@ class EnvUtils:
 class Actor4(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, seed, fc1_units=400, fc2_units=300, use_bn=False):
+    def __init__(self, state_size, action_size, seed, fc1_units=400, fc2_units=300):
         """Initialize parameters and build model.
         Params
         ======
@@ -109,39 +109,22 @@ class Actor4(nn.Module):
         """
         super(Actor4, self).__init__()
         self.seed = torch.manual_seed(seed)
-        # self.use_bn = use_bn
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units, action_size)
-        # if self.use_bn:
-        #     self.bn1 = nn.BatchNorm1d(state_size)
-        #     self.bn2 = nn.BatchNorm1d(fc1_units)
-        #     self.bn3 = nn.BatchNorm1d(fc2_units)
-
         self.reset_parameters()
 
     def reset_parameters(self):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
-        # self.fc1.bias.data.fill_(0.1)
-        # self.fc2.bias.data.fill_(0.1)
-        # self.fc3.bias.data.fill_(0.1)
 
     def forward(self, state):
         """Build an actor (policy) network that maps states -> actions."""
-        # if self.use_bn:
-        #     x = self.fc1(self.bn1(state))
-        # else:
-        #     x = self.fc1(state)
         x = self.fc1(state)
         x = F.relu(x)
-        # if self.use_bn:
-        #     x = self.bn2(x)
         x = self.fc2(x)
         x = F.relu(x)
-        # if self.use_bn:
-        #     x = self.bn3(x)
         return F.tanh(self.fc3(x))
 
 
@@ -160,35 +143,23 @@ class Critic4(nn.Module):
         """
         super(Critic4, self).__init__()
         self.seed = torch.manual_seed(seed)
-        # self.use_bn = use_bn
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units + action_size, fc2_units)
         self.fc3 = nn.Linear(fc2_units, 1)
-        # if self.use_bn:
-        #     self.bn1 = nn.BatchNorm1d(fc1_units)
-        #     self.bn2 = nn.BatchNorm1d(fc2_units)
-
         self.reset_parameters()
 
     def reset_parameters(self):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
-        # self.fc1.bias.data.fill_(0.1)
-        # self.fc2.bias.data.fill_(0.1)
-        # self.fc3.bias.data.fill_(0.1)
 
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         x = self.fc1(state)
         xs = F.relu(x)
-        # if self.use_bn:
-        #     x = self.bn1(x)
         x = torch.cat((xs, action), dim=1)
         x = self.fc2(x)
         x = F.relu(x)
-        # if self.use_bn:
-        #     x = self.bn2(x)
         return self.fc3(x)
 
 
@@ -403,7 +374,8 @@ class Administration:
         self.soft_update_started=False
         print("start training")
         self.epsilon = self.epsilon_start
-        solved = False
+        solved = False                          # if mean over 100 episodes of max score > 0.5
+        solved1 = False                         # if max score of one Episode is reached
         time_new = time_start = datetime.datetime.now()
         for i in range(self.episodes_train):
             for j in range(1):
@@ -423,10 +395,18 @@ class Administration:
                 self.epsilon_sigma_noise[j, 1, i] = mean_of_sigma_noise[0]
                 self.epsilon_sigma_noise[j, 2, i] = mean_of_sigma_noise[1]
             if i >= self.consecutive_episodes_required and not solved:
-                # if mean of Results reaches the goal value (mean over episodes of max of every episode Position [2] of scores_all_episodes)
+                # if max_reward in one Episode reaches 2 or higher
+                if max_reward >= 2.5 and not solved1:
+                    print(f"\n\nscore >= 2.5 in episode {i - self.consecutive_episodes_required + 1}\t"
+                          f"max_score: {max_reward}\n")
+                    if self.save_weights:
+                        self.save_parameter('s1_')
+                    solved1 = True
+                # if mean of Results reaches the goal value
+                # (mean over episodes of max of every episode Position [2] of scores_all_episodes)
                 if self.scores_all_episodes_and_NW[0][:, i - self.consecutive_episodes_required:i + 1].mean(axis=1)[2] >= self.target_reward:
                     print(f"\n\ntarget reward reached in episode: "
-                          f"{i - self.consecutive_episodes_required}: mean_of_max_of_rewards: "
+                          f"{i - self.consecutive_episodes_required + 1}: mean_of_max_of_rewards: "
                           f"{self.scores_all_episodes_and_NW[0][:, i - self.consecutive_episodes_required:i + 1].mean(axis=1)[2]}\n")
                     if self.save_weights:
                         self.save_parameter('s_')
@@ -698,7 +678,7 @@ class Administration:
         # torch.nn.utils.clip_grad_norm(self.critic_local.parameters(), 1)
 
         '''suggestet clipping'''
-        # torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
 
         self.critic_optimizer.step()
 

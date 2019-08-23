@@ -5,7 +5,7 @@
 
 {
 "load_indices": "g_0",               # s_25 for solved weights or g_23 for general weights (after episodes_train steps)
-"save_indices": "27",               # 26 during training or 26_test during test (for the plot)
+"save_indices": "29",               # 26 during training or 26_test during test (for the plot)
 "path_load": "results/",
 "path_save": "results/",
 "load_parameters_from_file": false,
