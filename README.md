@@ -1,13 +1,15 @@
 ## Project Details
 This Project was completed in the course of the Deep Reinforcement Learning Nanodegree Program from Udacity Inc. \
-In this Project 2 Agents play tennis together
-- Action space: 2
+In this Project 2 agents play tennis together
+- action space: 2
 - state space: 24
-- A reward of +0.1 is provided while hand in target location
-- one Episode takes maximum 1000 steps
-- the environment is solved when the agent gets an average score of +30 over 100 consecutive episodes: 
-  - After each episode, the rewards of each agent are summarized (without discounting)
-  - The mean of the 20 resulting values is the score of one episode
+- a reward of +0.1 is provided if an agent hits the ball over the net
+- a reward of -0.01 is provided if an agent lets a ball hit the ground
+- a reward of -0.01 is provided if an agent hits the ball out of bounds
+- one Episode takes maximum XXXXX steps and is done if the ball hits the ground
+  - after each episode, the rewards of each agent gets summarized (without discounting)
+  - the single score of an episode is the maximum score between the 2 scores of the 2 agents
+  - the environment is considered solved, when the average (over 100 episodes) of the single scores is at least +0.5
 ## Getting Started - dependencies
 
 #### Python version

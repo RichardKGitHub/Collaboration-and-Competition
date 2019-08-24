@@ -4,46 +4,29 @@
 #   config = commentjson.load(f)
 
 {
-"load_indices": "g_0",               # s_25 for solved weights or g_23 for general weights (after episodes_train steps)
-"save_indices": "29",               # 26 during training or 26_test during test (for the plot)
+"load_indices": "s1_28",               # s_25 for solved weights or g_23 for general weights (after episodes_train steps)
+"save_indices": "35",               # 26 during training or 26_test during test (for the plot)
 "path_load": "results/",
 "path_save": "results/",
 "load_parameters_from_file": false,
-"load_scores_version": 1,            # test the agent with the weights from: 0: min_reward; 1: mean_reward; 2: max_reward
 
 "save_weights": true,
 "save_plot": true,
 "show_plot": true,
 
 "episodes_train": 4000,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
-"episodes_test": 100,                 # Number of episodes if --train==False   # 100000 for env_utils.get_states_min_max_Values()
+"episodes_test": 105,                 # Number of episodes if --train==False   # 100000 for env_utils.get_states_min_max_Values()
 "target_reward": 0.5,
 "consecutive_episodes_required": 100, # 100 # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
 
-"network_type": "DDPG_4",     # expected: DDPG_1 to DDPG_4    |_1: A2 C3 | _2: A2 C2 | _3: A2 C2 | _4 Bsp A2 C2
+"network_type": "DDPG_1",     # expected: DDPG_1 to DDPG_4    |_1: A2 C3 | _2: A2 C2 | _3: A2 C2 | _4 Bsp A2 C2
 "actor_fcs1_units": 128,    # 256
 "actor_fcs2_units": 128,
 "critic_fcs1_units": 128,  # 256
 "critic_fcs2_units": 128,  # 256
-"critic_fcs3_units": 0,     # 128
-# "critic_fcs4_units": 5,     # 128
-# "num_of_parallel_networks": 1,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
+"critic_fcs3_units": 9,     # 128
 
-#"num_of_parallel_networks": 50,              # number of Networks with varying weights that get tested during training (must be bigger than sum of all keep_weights parameters)
-#"keep_weights_n_best_min": 1,               # 4 no change
-#"keep_weights_n_best_mean": 2,
-#"keep_weights_n_best_max": 1,
-#"keep_weights_n_best_min_small_change": 5,  # 20 best small change
-#"keep_weights_n_best_mean_small_change": 10,
-#"keep_weights_n_best_max_small_change": 5,
-#"keep_weights_n_best_min_big_change": 2,    # 12 best big change
-#"keep_weights_n_best_mean_big_change": 4,
-#"keep_weights_n_best_max_big_change": 2,
-#"keep_weights_n_worst_min_big_change": 1,   # 4 worst big change
-#"keep_weights_n_worst_mean_big_change": 2,
-#"keep_weights_n_worst_max_big_change": 1,
-# evolution concept
 "add_noise": true,               # add noise to action
 "noise_scale_best_small": 0.0002, # 0.0002
 "noise_scale_best_big": 0.002, #0.002
@@ -54,21 +37,17 @@
 "noise_sigma": 0.013,
 "random_seed": 10,             # random_seed
 
-# epsilon = 1
-# epsilon_end = 0.05
-# epsilon_decay = 1e-4  # if -= decay
 "epsilon_start": 1,         # 0.5 # epsilon = 0 is greedy |epsilon = 1 is random (always with noise)
 "epsilon_end": 1,          # 0.01
 "epsilon_decay": 0.99,
 "epsilon_test": 0.01,     # epsilon during test mode
-"buffer_size_admin": 2000000,    # replay buffer size
-"batch_size_admin": 256,         # 10 # minibatch size
+"buffer_size_admin": 2000000,    # 2000000 replay buffer size
+"batch_size_admin": 512,         # 10 # minibatch size
 "gamma": 0.9,            # discount factor
 "tau": 1e-3,              # for soft update of target parameters
 "learning_rate_actor": 1e-3,    # learning rate of the actor
 "learning_rate_critic": 1e-3,   # learning rate of the critic
 "weight_decay": 0.000,     # L2 weight decay
-# "update_target_every": 4, # how often to update the network
 "learn_every": 1,          # 2   20 # loern from experiences every <loern_every> steps
 "consecutive_learning_steps": 1,  # how often to learn in one training scession
 "lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -17, -4, -14, -22, -22, -22, -11, -11, -11, -1, -1, -1, -1, -15,
