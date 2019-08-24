@@ -4,8 +4,8 @@
 #   config = commentjson.load(f)
 
 {
-"load_indices": "s_31",               # s_35 for solved weights of DDPG_1 or s_31 for DDPG_2
-"save_indices": "37",                 # 26 during training or 26_test during test (for the plot)
+"load_indices": "s_35",               # s_35 for solved weights of DDPG_1 or s_31 for DDPG_2
+"save_indices": "38",                 # 26 during training or 26_test during test (for the plot)
 "path_load": "archive/",
 "path_save": "results/",
 "load_parameters_from_file": false,
@@ -19,7 +19,7 @@
 "target_reward": 0.5,
 "consecutive_episodes_required": 100, # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
-"network_type": "DDPG_2",             # expected: DDPG_1 or DDPG_2
+"network_type": "DDPG_1",             # expected: DDPG_1 or DDPG_2
 "actor_fcs1_units": 128,
 "actor_fcs2_units": 128,
 "critic_fcs1_units": 128,
