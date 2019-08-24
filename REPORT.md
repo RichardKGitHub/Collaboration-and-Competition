@@ -1,8 +1,8 @@
 [//]: # (Image References)
 
 [image1]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_35.png "training scores DDPG_1"
-[image2]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/noise_35.png "loss DDPG_1"
-[image3]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_35.png "noise DDPG_1"
+[image2]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/losses_35.png "loss DDPG_1"
+[image3]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/noise_35.png "noise DDPG_1"
 [image4]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/mean_score_36.png "test scores DDPG_1 consecutive mean"
 [image5]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_31.png "training scores DDPG_2"
 [image6]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/mean_score_37.png "test scores DDPG_2 consecutive mean"
