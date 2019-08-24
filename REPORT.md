@@ -1,8 +1,8 @@
 [//]: # (Image References)
 
 [image1]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_35.png "training scores DDPG_1"
-[image2]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/noise_35.png "noise DDPG_1"
-[image3]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_36.png "test scores DDPG_1"
+[image2]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/noise_35.png "loss DDPG_1"
+[image3]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_35.png "noise DDPG_1"
 [image4]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/mean_score_36.png "test scores DDPG_1 consecutive mean"
 [image5]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_31.png "training scores DDPG_2"
 [image6]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/mean_score_37.png "test scores DDPG_2 consecutive mean"
@@ -66,18 +66,20 @@ This is quite remarkable, considering that the only difference lays in the criti
 output neuron and a different activation function for the critic network (leaky_ReLu instead of ReLu).
 #### DDPG_1
 - task solved in episode 1171 (reaching a mean score over 100 consecutive episodes of 0.502475 in episode 1271)
+  - graph max_scores shows the score of the best agent per episode and min_scores the score of the worst agent
 ![training scores DDPG_1][image1]
+  - loss during training (mean over all steps in one episode):
+![loss DDPG_1][image2]
+  - noise for the action during training(mean over all steps in one episode):
+![noise DDPG_1][image3]
 - the test was performed over 400 episodes with the weights that where saved at episode 1271 of training. No Noise was added to the actions during the test
   - Min_consecutive_Score: 1,72
   - Max_consecutive_Score: 1,99
   - graph shows the mean Score over the last 100 episodes:
-![test scores DDPG_1 consecutive mean][image2]
-  - loss during training (mean over all steps in one episode):
-![loss DDPG_1][image3]
-  - noise for the action during training(mean over all steps in one episode):
-![noise DDPG_1][image4]
+![test scores DDPG_1 consecutive mean][image4]
 #### DDPG_2
 - task solved in episode 2466 (reaching a mean score over 100 consecutive episodes of 0.501485 in episode 2566)
+  - graph max_scores shows the score of the best agent per episode and min_scores the score of the worst agent
 ![training scores DDPG_2][image5]
 - the test was performed over 400 episodes with the weights that where saved at episode 2568 of training. No Noise was added to the actions during the test
   - Min_consecutive_Score: 0,77
