@@ -48,12 +48,6 @@ class EnvUtils:
         self.states_normalized = np.empty(shape=(1, admin.number_of_agents, admin.state_size))
         self.next_states_normalized = np.empty(shape=(1, admin.number_of_agents, admin.state_size))
 
-    def set_states(self, states, next_states):
-        self.states = states
-        self.next_states = next_states
-        self.normalize_states()
-        return None
-
     def get_random_start_state(self):
         env_info_tr = env.reset(train_mode=admin.env_train_mode)[brain_name]
         for _ in range(admin.number_of_random_actions):
@@ -587,8 +581,8 @@ class Administration:
                 plt.show()
         # plot testing specific plots
         else:
-            x4_plot = np.arange(self.consecutive_episodes_required,
-                                self.consecutive_episodes_required + len(self.max_scores))
+            x4_plot = np.arange(self.consecutive_episodes_required + 1,
+                                self.consecutive_episodes_required + 1 + len(self.max_scores))
             plt.subplot(1, 3, 2)
             plt.plot(x4_plot, self.max_scores, '-')
             plt.title('mean over 100 consecutive scores')
@@ -675,7 +669,8 @@ class Administration:
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
         self.sigma_noiseMean[0, 0, self.step_counter] = self.noise_sigma            # for plot of sigma
-        if self.add_noise:
+        # only add noise during training and if requested by the config
+        if self.add_noise and train:
             if random.random() < self.epsilon:      # add noise with probability epsilon --> no noise if epsilon-greedy
                 noise = self.noise.sample()
                 action += noise
@@ -775,7 +770,7 @@ class Administration:
 if __name__ == "__main__":
     # Idea of parser: https://docs.python.org/2/howto/argparse.html
     parser = argparse.ArgumentParser(description='Interacting Agent')
-    parser.add_argument('--train', type=str, default='True', help='True: train the agent; '
+    parser.add_argument('--train', type=str, default='False', help='True: train the agent; '
                                                                   'default=False: test the agent')
     parser.add_argument('--config_file', type=str, default='config.json',
                         help='Name of config_file in root of Continuous_Control')
@@ -825,7 +820,7 @@ if __name__ == "__main__":
     else:
         print(f"\nTest the Network with fixed weights from <checkpoint_{admin.load_indices}.pth> "
               f"using config_file <{args.config_file}> on device <{device}>")
-        # admin.env_train_mode = False
+        admin.env_train_mode = False
         admin.test()
     env.close()
 

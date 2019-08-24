@@ -6,7 +6,7 @@ In this Project 2 agents play tennis together
 - a reward of +0.1 is provided if an agent hits the ball over the net
 - a reward of -0.01 is provided if an agent lets a ball hit the ground
 - a reward of -0.01 is provided if an agent hits the ball out of bounds
-- one Episode takes maximum XXXXX steps and is done if the ball hits the ground
+- scores:
   - after each episode, the rewards of each agent gets summarized (without discounting)
   - the single score of an episode is the maximum score between the 2 scores of the 2 agents
   - the environment is considered solved, when the average (over 100 episodes) of the single scores is at least +0.5

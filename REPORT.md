@@ -61,8 +61,9 @@ The Project was solved by two different network architectures
   - tau: 1e-3 (for soft update of target parameters)
   - learning_rate: 1e-3
 ## Plot of Rewards
-- the network architecture of DDPG_1 outperforms DDPG_2 in respect to the learning speed (it needs half as much episodes to reach the target value). 
-This is quite remarkable, considering that the only difference lays in the critics architecture with an additional layer of 9 neurons before the output neuron
+The network architecture of DDPG_1 outperforms DDPG_2 in respect to the learning speed (it needs half as much episodes to reach the target value). 
+This is quite remarkable, considering that the only difference lays in the critics architecture with an additional layer of 9 neurons before the 
+output neuron and a different activation function for the critic network (leaky_ReLu instead of ReLu).
 #### DDPG_1
 - task solved in episode 1171 (reaching a mean score over 100 consecutive episodes of 0.502475 in episode 1271)
 ![training scores DDPG_1][image1]

@@ -4,8 +4,8 @@
 #   config = commentjson.load(f)
 
 {
-"load_indices": "s1_28",               # s_25 for solved weights or g_23 for general weights (after episodes_train steps)
-"save_indices": "35",               # 26 during training or 26_test during test (for the plot)
+"load_indices": "s_31",               # s_25 for solved weights or g_23 for general weights (after episodes_train steps)
+"save_indices": "37",               # 26 during training or 26_test during test (for the plot)
 "path_load": "results/",
 "path_save": "results/",
 "load_parameters_from_file": false,
@@ -15,19 +15,19 @@
 "show_plot": true,
 
 "episodes_train": 4000,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
-"episodes_test": 105,                 # Number of episodes if --train==False   # 100000 for env_utils.get_states_min_max_Values()
+"episodes_test": 400,                 # Number of episodes if --train==False   # 100000 for env_utils.get_states_min_max_Values()
 "target_reward": 0.5,
 "consecutive_episodes_required": 100, # 100 # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
 
-"network_type": "DDPG_1",     # expected: DDPG_1 to DDPG_4    |_1: A2 C3 | _2: A2 C2 | _3: A2 C2 | _4 Bsp A2 C2
+"network_type": "DDPG_2",     # expected: DDPG_1 or DDPG_2
 "actor_fcs1_units": 128,    # 256
 "actor_fcs2_units": 128,
 "critic_fcs1_units": 128,  # 256
 "critic_fcs2_units": 128,  # 256
 "critic_fcs3_units": 9,     # 128
 
-"add_noise": true,               # add noise to action
+"add_noise": false,               # add noise to action
 "noise_scale_best_small": 0.0002, # 0.0002
 "noise_scale_best_big": 0.002, #0.002
 "noise_scale_worst": 0.009,    #0.009
@@ -62,6 +62,6 @@
 # "num_of_same_act_repetition": 1,        # 1 for test()  # dont support !=1 for train (mixup betwean next_state and state)
 "env_train_mode": true,    # true during training | false for test
 # "environment_path":"/data/Tennis_Linux_NoVis/Tennis"
-# "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p3_collab-compet/Tennis_Linux/Tennis.x86_64"
-"environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p3_collab-compet/Tennis_Linux_NoVis/Tennis.x86_64"
+"environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p3_collab-compet/Tennis_Linux/Tennis.x86_64"
+# "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p3_collab-compet/Tennis_Linux_NoVis/Tennis.x86_64"
 }
