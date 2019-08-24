@@ -16,8 +16,8 @@ This algorithm utilises an actor to determine the next action and a critic to pr
   - target_actor: network to determine future actions during update process of local_critic
   - local_critic: network to determine loss for the update of local_actor
   - target_critic: network to determine future Q-Value for the calculation of the "discounted Reward" during update of local_critic
-- after each environmental step a replay buffer gets filled with the 20 <state, action, reward, next state> information's from the 20 agents
-- after each environmental step the weights of the local networks get updated using an batch_size of 256 randomly picked from the replay buffer
+- after each environmental step a replay buffer gets filled with the 2 <state, action, reward, next state> information's from the 2 agents
+- after each environmental step the weights of the local networks get updated using an batch_size of 512 randomly picked from the replay buffer
 - after each environmental step the target networks are getting updated via soft_update:
   ```
   target_param_new = tau * copy(local_param) + (1.0 - tau) * target_param
