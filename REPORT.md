@@ -1,11 +1,11 @@
 [//]: # (Image References)
 
-[image1]: https://github.com/RichardKGitHub/Continuous_Control_Project/blob/master/archive/scores_29.png "training scores DDPG_1"
-[image2]: https://github.com/RichardKGitHub/Continuous_Control_Project/blob/master/archive/scores_30.png "test scores DDPG_1"
-[image3]: https://github.com/RichardKGitHub/Continuous_Control_Project/blob/master/archive/mean_score_30.png "test scores DDPG_1 consecutive mean"
-[image4]: https://github.com/RichardKGitHub/Continuous_Control_Project/blob/master/archive/scores_25.png "training scores DDPG_2"
-[image5]: https://github.com/RichardKGitHub/Continuous_Control_Project/blob/master/archive/scores_26.png "test scores DDPG_2"
-[image6]: https://github.com/RichardKGitHub/Continuous_Control_Project/blob/master/archive/mean_score_26.png "test scores DDPG_2 consecutive mean"
+[image1]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_35.png "training scores DDPG_1"
+[image2]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/noise_35.png "noise DDPG_1"
+[image3]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_36.png "test scores DDPG_1"
+[image4]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/mean_score_36.png "test scores DDPG_1 consecutive mean"
+[image5]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/scores_31.png "training scores DDPG_2"
+[image6]: https://github.com/RichardKGitHub/Collaboration-and-Competition/blob/col_01/archive/mean_score_37.png "test scores DDPG_2 consecutive mean"
 
 ## Learning Algorithm
 The Project was solved by a ddpg algorithm ( Deep Deterministic Policy Gradient) \
@@ -61,30 +61,28 @@ The Project was solved by two different network architectures
   - tau: 1e-3 (for soft update of target parameters)
   - learning_rate: 1e-3
 ## Plot of Rewards
-The network architecture of DDPG_1 outperforms DDPG_2 in respect to the learning speed (it needs half as much episodes to reach the target value). 
+The network architecture of DDPG_1 outperforms DDPG_2 in respect to the learning speed (it needs half as much episodes to reach the target value) and the mean_score over 100 consecutive episodes during training. 
 This is quite remarkable, considering that the only difference lays in the critics architecture with an additional layer of 9 neurons before the 
 output neuron and a different activation function for the critic network (leaky_ReLu instead of ReLu).
 #### DDPG_1
 - task solved in episode 1171 (reaching a mean score over 100 consecutive episodes of 0.502475 in episode 1271)
 ![training scores DDPG_1][image1]
-- the test was performed over 105 episodes with the weights that where saved at episodes 140 of training. Noise was added to the actions during the test
-  - Min_Score: XXXX (Plot mean_scores of following graph)
-  - Max_Score: XXXX (Plot mean_scores of following graph)
-  - The min_scores/max_scores of the following graph are showing the score of the worst/best agent for each episode
-![test scores DDPG_1][image2]
-  - Min_consecutive_Score: XXXX
-  - Max_consecutive_Score: XXXX:
-![test scores DDPG_1 consecutive mean][image3]
+- the test was performed over 400 episodes with the weights that where saved at episode 1271 of training. No Noise was added to the actions during the test
+  - Min_consecutive_Score: 1,72
+  - Max_consecutive_Score: 1,99
+  - graph shows the mean Score over the last 100 episodes:
+![test scores DDPG_1 consecutive mean][image2]
+  - loss during training (mean over all steps in one episode):
+![loss DDPG_1][image3]
+  - noise for the action during training(mean over all steps in one episode):
+![noise DDPG_1][image4]
 #### DDPG_2
-- task solved in episode 2466 (reaching a mean score over 100 consecutive episodes of 0.501485 in episode 2568)
-![training scores DDPG_2][image4]
-- the test was performed over 105 episodes with the weights that where saved at episodes XXXX of training. No Noise was added to the actions during the test
-  - Min_Score: XXXX (Plot mean_scores of following graph)
-  - Max_Score: XXXX (Plot mean_scores of following graph)
-  - The min_scores/max_scores of the following graph are showing the score of the worst/best agent for each episode
-![test scores DDPG_2][image5]
-  - Min_consecutive_Score: XXXX
-  - Max_consecutive_Score: XXXX:
+- task solved in episode 2466 (reaching a mean score over 100 consecutive episodes of 0.501485 in episode 2566)
+![training scores DDPG_2][image5]
+- the test was performed over 400 episodes with the weights that where saved at episode 2568 of training. No Noise was added to the actions during the test
+  - Min_consecutive_Score: 0,77
+  - Max_consecutive_Score: 1,16
+  - graph shows the mean Score over the last 100 episodes:
 ![test scores DDPG_2 consecutive mean][image6]
 ## Ideas for Future Work
 - In the next step, the parameters for both networks and algorithms could be further adjusted to see if the task can be solved in fewer episodes.

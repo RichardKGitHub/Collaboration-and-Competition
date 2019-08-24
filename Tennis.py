@@ -322,10 +322,6 @@ class Administration:
         self.critic_fcs2_units = config_data_interact['critic_fcs2_units']
         self.critic_fcs3_units = config_data_interact['critic_fcs3_units']
         self.add_noise = config_data_interact['add_noise']
-        self.noise_scale_best_small = config_data_interact['noise_scale_best_small']
-        self.noise_scale_best_big = config_data_interact['noise_scale_best_big']
-        self.noise_scale_worst = config_data_interact['noise_scale_worst']
-        self.sigma = config_data_interact['sigma']
         self.noise_theta = config_data_interact['noise_theta']
         self.noise_sigma = config_data_interact['noise_sigma']
         self.random_seed = config_data_interact['random_seed']
@@ -345,8 +341,7 @@ class Administration:
         self.consecutive_learning_steps = config_data_interact['consecutive_learning_steps']
         self.lInterpolParam = config_data_interact['lInterpolParam']
         self.normalize_states = config_data_interact['normalize_states']
-        self.number_of_agents = config_data_interact['number_of_agents']  # 20
-        self.agents_duplication_factor = config_data_interact['agents_duplication_factor']
+        self.number_of_agents = config_data_interact['number_of_agents']
         self.number_of_random_actions = config_data_interact['number_of_random_actions']
         self.max_steps_per_training_episode = config_data_interact['max_steps_per_training_episode']
         self.env_train_mode = config_data_interact['env_train_mode']
@@ -359,7 +354,6 @@ class Administration:
         self.rewards_all_networks = np.empty(shape=(3, 1))
         self.state_size = 24
         self.action_size = 2
-
         self.i_update = 0
         self.q_loss_loss_one_episode = np.zeros(shape=(5, int(self.max_steps_per_training_episode/self.learn_every*self.consecutive_learning_steps)))
         self.q_loss_loss = np.zeros(shape=(1, 5, self.episodes_train))

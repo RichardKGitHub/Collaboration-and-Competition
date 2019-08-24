@@ -47,6 +47,7 @@ For specification of interaction-mode and -config-file run:
 ```
 python3.6 Tennis_Project.py --train False --config_file config.json
 ```
+
 Info: \
 The UnityEnvironment is expected at `"environment_path":"/data/Tennis_Linux_NoVis/Tennis"`. \
 This can be changed in the `config.json` file if necessary.

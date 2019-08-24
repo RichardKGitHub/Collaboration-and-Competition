@@ -4,9 +4,9 @@
 #   config = commentjson.load(f)
 
 {
-"load_indices": "s_31",               # s_25 for solved weights or g_23 for general weights (after episodes_train steps)
-"save_indices": "37",               # 26 during training or 26_test during test (for the plot)
-"path_load": "results/",
+"load_indices": "s_31",               # s_35 for solved weights of DDPG_1 or s_31 for DDPG_2
+"save_indices": "37",                 # 26 during training or 26_test during test (for the plot)
+"path_load": "archive/",
 "path_save": "results/",
 "load_parameters_from_file": false,
 
@@ -17,51 +17,40 @@
 "episodes_train": 4000,               # Number of episodes if --train==True for Administration.train() and EnvUtils.get_states_min_max_Values()
 "episodes_test": 400,                 # Number of episodes if --train==False   # 100000 for env_utils.get_states_min_max_Values()
 "target_reward": 0.5,
-"consecutive_episodes_required": 100, # 100 # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
+"consecutive_episodes_required": 100, # mean of reward must reach 'target_reward' over 'consecutive_episodes_required' episodes
 
-
-"network_type": "DDPG_2",     # expected: DDPG_1 or DDPG_2
-"actor_fcs1_units": 128,    # 256
+"network_type": "DDPG_2",             # expected: DDPG_1 or DDPG_2
+"actor_fcs1_units": 128,
 "actor_fcs2_units": 128,
-"critic_fcs1_units": 128,  # 256
-"critic_fcs2_units": 128,  # 256
-"critic_fcs3_units": 9,     # 128
+"critic_fcs1_units": 128,
+"critic_fcs2_units": 128,
+"critic_fcs3_units": 9,
 
-"add_noise": false,               # add noise to action
-"noise_scale_best_small": 0.0002, # 0.0002
-"noise_scale_best_big": 0.002, #0.002
-"noise_scale_worst": 0.009,    #0.009
-"sigma": 0.5,             # factor for the scaling of the np.random.randn() weight initialisation
-# loss concept
+"add_noise": true,                          # add noise to action
 "noise_theta": 0.24,
 "noise_sigma": 0.013,
-"random_seed": 10,             # random_seed
-
-"epsilon_start": 1,         # 0.5 # epsilon = 0 is greedy |epsilon = 1 is random (always with noise)
-"epsilon_end": 1,          # 0.01
+"random_seed": 10,                          # random_seed
+"epsilon_start": 1,                         # different approach epsilon = 0:  No Noise | epsilon = 1 always add noise
+"epsilon_end": 1,
 "epsilon_decay": 0.99,
-"epsilon_test": 0.01,     # epsilon during test mode
-"buffer_size_admin": 2000000,    # 2000000 replay buffer size
-"batch_size_admin": 512,         # 10 # minibatch size
-"gamma": 0.9,            # discount factor
-"tau": 1e-3,              # for soft update of target parameters
-"learning_rate_actor": 1e-3,    # learning rate of the actor
-"learning_rate_critic": 1e-3,   # learning rate of the critic
-"weight_decay": 0.000,     # L2 weight decay
-"learn_every": 1,          # 2   20 # loern from experiences every <loern_every> steps
-"consecutive_learning_steps": 1,  # how often to learn in one training scession
+"epsilon_test": 1,                          # epsilon during test
+"buffer_size_admin": 2000000,               # replay buffer size
+"batch_size_admin": 512,                    # minibatch size
+"gamma": 0.9,                               # discount factor
+"tau": 1e-3,                                # for soft update of target parameters
+"learning_rate_actor": 1e-3,                # learning rate of the actor
+"learning_rate_critic": 1e-3,               # learning rate of the critic
+"weight_decay": 0.000,                      # weight decay
+"learn_every": 1,                           # learn from experiences every <learn_every> steps
+"consecutive_learning_steps": 1,            # how often to learn in one training scession
 "lInterpolParam": [[-4.1, -4.1, -4.1, -1, -1, -1, -1, -17, -4, -14, -22, -22, -22, -11, -11, -11, -1, -1, -1, -1, -15,
                    -14, -12, -60, -60, -60, -8, -1.1, -8, -0.1, 0.9, -0.1, -1],
                    [4.1, 4.1, 4.1, 1, 1, 1, 1, 17, 4, 14, 22, 22, 22, 11, 11, 11, 1, 1, 1, 1, 15, 14, 12, 60, 60, 60,
                    8, -0.9, 8, 0.1, 1.1, 0.1, 1], false],
-"normalize_states": false,  # interpolate the states or not
+"normalize_states": false,                  # interpolate the states or not
 "number_of_agents": 2,
-"agents_duplication_factor": 1,
-"number_of_random_actions": 0,    # number of random actions before training starts
-"max_steps_per_training_episode": 1000,  # 200 for train(); 1000 for test()
-# "num_of_same_act_repetition": 1,        # 1 for test()  # dont support !=1 for train (mixup betwean next_state and state)
-"env_train_mode": true,    # true during training | false for test
-# "environment_path":"/data/Tennis_Linux_NoVis/Tennis"
-"environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p3_collab-compet/Tennis_Linux/Tennis.x86_64"
-# "environment_path":"/home/user2/Documents/github/udacity/DeepReinforcementLearning/deep-reinforcement-learning/p3_collab-compet/Tennis_Linux_NoVis/Tennis.x86_64"
+"number_of_random_actions": 0,              # number of random actions before training starts
+"max_steps_per_training_episode": 1000,
+"env_train_mode": true,
+"environment_path":"/data/Tennis_Linux_NoVis/Tennis"
 }
