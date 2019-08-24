@@ -41,11 +41,11 @@ In this Project 2 agents play tennis together
 ## Instructions - Run the Script
 In your shell run:
 ```
-python3.6 Tennis_Project.py
+python3.6 Tennis.py
 ```
 For specification of interaction-mode and -config-file run:
 ```
-python3.6 Tennis_Project.py --train False --config_file config.json
+python3.6 Tennis.py --train False --config_file config.json
 ```
 
 Info: \
